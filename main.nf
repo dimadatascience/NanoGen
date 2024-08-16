@@ -1,4 +1,4 @@
-// mi_to_preprocessing, working now
+// mi_to_preprocessing, first commit
 nextflow.enable.dsl = 2
 
 // Include here

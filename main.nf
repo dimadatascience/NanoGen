@@ -1,101 +1,31 @@
-// mi_to_preprocessing, first commit
+// SCMSEQ_NEW, first commit
 nextflow.enable.dsl = 2
 
 // Include here
-include { bulk_gbc } from "./subworkflows/bulk_gbc/main"
-include { tenx } from "./subworkflows/tenx/main"
-include { sc_gbc } from "./subworkflows/sc_gbc/main"
-include { maester } from "./subworkflows/maester/main"
-include { test_fgbio } from "./subworkflows/test_fgbio/main"
+include { long_reads } from "./subworkflows/long_reads/main"
 
 
 //
 
 
-// (Bulk DNA) targeted DNA sequencing of GBC
-ch_bulk_gbc = Channel
-    .fromPath("${params.bulk_gbc_indir}/*", type:'dir') 
-    .map{ tuple(it.getName(), it) }
-    
-// GBC enrichment from 10x library
-ch_sc_gbc = Channel
-    .fromPath("${params.sc_gbc_indir}/*", type:'dir')
-    .map{ tuple(it.getName(), it) }
-
-// 10x GEX library
-ch_tenx = Channel
-    .fromPath("${params.sc_tenx_indir}/*", type:'dir')
-    .map{ tuple(it.getName(), it) }
-
-// MAESTER library
-ch_maester = Channel
-    .fromPath("${params.sc_maester_indir}/*", type:'dir') 
-    .map{ tuple(it.getName(), it) }
-
-// Test
-ch_bams = Channel.fromPath("${params.test_bams}/*") 
+// Create a Channel of nanopore fastqs from the input csv file
+ch_fastqs = Channel.fromPath(params.input_fastqs).splitCsv(header: true).map { row -> [row.sample, row.lane,row.fastq]}
 
 
 //
 
 
 //----------------------------------------------------------------------------//
-// mito_preprocessing pipeline
+// SCM-seq pipeline, pre-processing of nanopore reads from targeted enrichment.
 //----------------------------------------------------------------------------//
 
 //
 
-workflow TENX {
+workflow LONG_READS {
 
-    tenx(ch_tenx)
+    long_reads(ch_fastqs)
+    long_reads.out.results.view()
 
-}
-   
-//
-
-workflow TENX_MITO {
-
-    tenx(ch_tenx)
-    maester(ch_maester, tenx.out.filtered, tenx.out.bam)
-
-} 
-
-//
-
-workflow BULK_GBC {
- 
-    bulk_gbc(ch_bulk_gbc)
-
-}
-
-//
-
-workflow TENX_GBC {
-
-    tenx(ch_tenx)
-    sc_gbc(ch_sc_gbc, tenx.out.filtered)
-    sc_gbc.out.summary.view()
-
-}
-
-//
-
-workflow TENX_GBC_MITO {
-
-    tenx(ch_tenx)
-    sc_gbc(ch_sc_gbc, tenx.out.filtered)
-    maester(ch_maester, tenx.out.filtered, tenx.out.bam)
-    maester.out.afm.view()
-
-}
-
-//
-
-workflow TEST_FGBIO {
- 
-    test_fgbio(ch_bams)
-    test_fgbio.out.results.view()
- 
 }
 
 //

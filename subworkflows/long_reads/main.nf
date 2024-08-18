@@ -14,22 +14,22 @@ include { GENOTYPING } from "./modules/genotyping.nf"
 
 // 
 
-// process publish_long_reads {
-// 
-//     publishDir "${params.outdir}/${sample_name}/", mode: 'copy'
-// 
-//     input:
-//     tuple val(sample_name), ...
-// 
-//     output:
-//     ...
-// 
-//     script:
-//     """
-//     echo moving everything to ${params.sc_outdir}
-//     """
-// 
-// }
+process publish_long_reads {
+
+    publishDir "${params.outdir}/${sample_name}/", mode: 'copy'
+
+    input:
+    tuple val(sample_name), ...
+
+    output:
+    ...
+
+    script:
+    """
+    echo moving everything to ${params.sc_outdir}
+    """
+
+}
  
 // 
 

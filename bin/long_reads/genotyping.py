@@ -5,7 +5,7 @@ import pandas as pd
 import numpy as np
 from datetime import datetime
 from scipy.stats import nbinom
-import matplotlib.pyplot as plt
+# import matplotlib.pyplot as plt
 
 
 ##
@@ -53,8 +53,8 @@ def main():
         barcodes = pd.read_csv(mut, index_col=[0])
         counts_per_cell = np.sum(barcodes.loc[:, ~(barcodes.columns.isin(['barcode']))].values, axis=1)
         counts_per_cell[counts_per_cell == 0] = np.min(counts_per_cell[counts_per_cell != 0])
-        plt.hist(np.log10(counts_per_cell))
-        plt.xlabel("Counts per cell log10")
+        # plt.hist(np.log10(counts_per_cell))   # Do we need to keep it, if we are not using it??
+        # plt.xlabel("Counts per cell log10")
 
         barcodes = barcodes[np.sum(barcodes.loc[:, ~(barcodes.columns.isin(['barcode']))].values, axis=1) > 3]
         genes = np.unique([x[0] for x in barcodes.columns.str.split("_").values if x[0] not in ['barcode']])
@@ -71,13 +71,12 @@ def main():
             genotypes[genes[idx]] = "-"
 
             r = selected.loc[:, ["MUT" in x for x in selected.columns]].values.squeeze()  # success
-            k = selected.loc[:, ["WT" in x for x in selected.columns]].values.squeeze()  # failure
+            k = selected.loc[:, ["WT" in x for x in selected.columns]].values.squeeze()   # failure
 
             probability_null_hypothesis_wt = nbinom.cdf(k=k, n=r, p=experimental_error)
             genotypes.loc[probability_null_hypothesis_wt < 0.1, genes[idx]] = "MUT"
             genotypes.loc[probability_null_hypothesis_wt >= 0.9, genes[idx]] = "WT"
-            genotypes.loc[(np.isnan(probability_null_hypothesis_wt)), genes[
-                idx]] = "WT"  # if no mutation reads is found, then nbinom is nan
+            genotypes.loc[(np.isnan(probability_null_hypothesis_wt)), genes[idx]] = "WT"  # if no mutation reads is found, then nbinom is nan
             genotypes.loc[np.sum(selected, axis=1) < 3, genes[idx]] = ""
 
         nan_value = float("NaN")

@@ -1,4 +1,4 @@
-# MI_TO image
+# SCM-seq image
 
 ################################################################
 
@@ -28,22 +28,28 @@ RUN wget https://github.com/conda-forge/miniforge/releases/latest/download/Mamba
     && bash Mambaforge-Linux-x86_64.sh -b -p /mambaforge
 ENV PATH="/mambaforge/bin/:$PATH"
 
-## Clone repo and install code
-RUN echo new_commits
-RUN git clone https://github.com/andrecossa5/mito_utils.git \
-    && cd mito_utils \
-    && mamba env update -n base -f envs/environment.yml \
-    && mamba develop .. \
-    && mamba develop ../mito_utils/ 
+# mamba
+RUN mamba install --yes -c conda-forge numpy pandas scipy matplotlib openjdk pigz 
+RUN mamba install --yes -c bioconda pysam samtools=1.20 bedtools jvarkit 
 
-# pysam dnaio
-RUN pip install pysam dnaio
+# PIP
+RUN pip install umi_tools blaze2
 
-# Maegatk repo
-RUN git clone https://github.com/caleblareau/maegatk.git
+# Minimap2, precompiled
+RUN wget -L https://github.com/lh3/minimap2/releases/download/v2.28/minimap2-2.28_x64-linux.tar.bz2 \
+    && tar -xf minimap2-2.28_x64-linux.tar.bz2
+ENV PATH="/minimap2-2.28_x64-linux/:$PATH"
+
+# bam-readcount, build
+RUN git clone https://github.com/genome/bam-readcount \
+    && cd bam-readcount \
+    && mkdir build \
+    && cd build \
+    && cmake .. \
+    && make
+ENV PATH="/bam-readcount/build/bin/:$PATH"
 
 ## Default command to initialize the container
 CMD [ "bash" ]
 
 #################################################################
-

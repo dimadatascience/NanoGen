@@ -16,7 +16,7 @@ process MERGE_READS {
 
   script:
   """
-  zcat ${fastqs} | pigz --fast > matched_reads.fastq.gz
+  zcat ${fastqs} | pigz --fast -p ${task.cpus} > matched_reads.fastq.gz
   """
 
   stub:

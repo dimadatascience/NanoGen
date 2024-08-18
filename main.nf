@@ -16,7 +16,7 @@ ch_fastqs = Channel.fromPath(params.input_fastqs).splitCsv(header: true).map { r
 
 
 //----------------------------------------------------------------------------//
-// SCM-seq pipeline, pre-processing of nanopore reads from targeted enrichment.
+// SCM-seq pipeline entry points
 //----------------------------------------------------------------------------//
 
 //

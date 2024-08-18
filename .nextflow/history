@@ -1,0 +1,1 @@
+2024-08-18 16:28:01	3.1s	happy_chandrasekhar	OK	fe27986fb00c5fcf46dc9ed0a4cd9d92	583fb66c-8f81-4778-9282-e378db526595	nextflow run main.nf -c config/nextflow_test.config -params-file params/params_test.json -entry LONG_READS -profile conda_local -stub

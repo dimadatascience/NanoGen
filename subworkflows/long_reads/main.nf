@@ -11,27 +11,9 @@ include { CONSENSUS } from "./modules/consensus.nf"
 include { COLLAPSE } from "./modules/collapse_consensus.nf"
 include { GENOTYPING } from "./modules/genotyping.nf"
 
-
-// 
-
-process publish_long_reads {
-
-    publishDir "${params.outdir}/${sample_name}/", mode: 'copy'
-
-    input:
-    tuple val(sample_name), ...
-
-    output:
-    ...
-
-    script:
-    """
-    echo moving everything to ${params.sc_outdir}
-    """
-
-}
  
 // 
+
 
 //----------------------------------------------------------------------------//
 // long_reads subworkflow

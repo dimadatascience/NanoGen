@@ -9,7 +9,7 @@ include { long_reads } from "./subworkflows/long_reads/main"
 
 
 // Create a Channel of nanopore fastqs from the input csv file
-ch_fastqs = Channel.fromPath(params.input_fastqs).splitCsv(header: true).map { row -> [row.sample, row.lane,row.fastq]}
+ch_fastqs = Channel.fromPath(params.input_fastqs).splitCsv(header: true).map { row -> [row.sample, row.lane, row.fastq]}
 
 
 //

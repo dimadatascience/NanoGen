@@ -148,7 +148,7 @@ def main():
                 ] = consensus_on_umi(line, ref, alt)[val]
 
     target["barcode"] = args.cell_barcode
-    target.to_csv(f"{args.cell_barcode}.csv", index=False)
+    target.to_csv(f"{args.cell_barcode}_table.csv", index=False)
 
 
 if __name__ == "__main__":

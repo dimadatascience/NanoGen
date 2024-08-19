@@ -8,6 +8,10 @@ import numpy as np
 import pandas as pd
 
 
+##
+
+
+# Utils
 def _parse_args():
     """Parse command-line arguments."""
     parser = argparse.ArgumentParser()
@@ -52,6 +56,9 @@ def _parse_args():
     )
     args = parser.parse_args()
     return args
+
+
+##
 
 
 def consensus_on_umi(line, ref, alt, min_fraction=0.75, min_consensus=3):
@@ -114,8 +121,14 @@ def consensus_on_umi(line, ref, alt, min_fraction=0.75, min_consensus=3):
     return consensus_counts
 
 
+##
+
+
 def main():
-    """Generate count matrix based of consensus base at positions within target position."""
+    """
+    Generate count matrix based of consensus base at positions within target position.
+    """
+    
     # Parse input
     args = _parse_args()
 
@@ -151,5 +164,9 @@ def main():
     target.to_csv(f"{args.cell_barcode}_table.csv", index=False)
 
 
+##
+
+
+# Run
 if __name__ == "__main__":
     main()

@@ -30,9 +30,14 @@ workflow LONG_READS {
 
 //
 
-// Mock
+// Default message
 workflow {
     
-    Channel.of(1,2,3,4) | view
+    println "\n"
+    println "Hi there! This is the new version of the SCM-seq pre-processing toolkit. The LONG_READS entry point is currently supported."
+    println "Usage: nextflow run main.nf -c <config> -params-file <params> -profile <profile> -entry LONG_READS"
+    println "See https://github.com/dimadatascience/scmseq_new/blob/develop/main.nf ./config and ./params for configurations and options available."
+    println "N.B. BETA version under active development."
+    println "\n"
 
 }

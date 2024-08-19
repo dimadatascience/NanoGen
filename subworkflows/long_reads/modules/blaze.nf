@@ -16,12 +16,12 @@ process BLAZE {
 
   script:
   """
-  blaze \
-  --expect-cells ${params.blaze_expect_cells} \
+  # Default option... --expect-cells #params.blaze_expect_cells
+  blaze ${fastq} \
+  --no-whitelisting \
   --threads ${task.cpus} \
   --output-prefix ${sample_name}_${lane}_ \
-  --max-edit-distance ${params.blaze_edit_distance} \
-  ${fastq}
+  --max-edit-distance ${params.blaze_edit_distance}
   """
 
   stub:

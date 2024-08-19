@@ -16,12 +16,13 @@ def main():
     output_bam = pysam.AlignmentFile(path_output, 'wb', template=input_bam)
 
     for read in input_bam:
-        read_name = read.qname
-        CB, UB = read_name[:29].split('_')
-        read.qname = read_name[30:]
-        read = read.set_tag('CB', CB)
-        read = read.set_tag('UB', UB)
-        output_bam.write(read)
+        if read is not None:
+            read_name = read.qname
+            CB, UB = read_name[:29].split('_')
+            read.qname = read_name[30:]
+            read = read.set_tag('CB', CB)
+            read = read.set_tag('UB', UB)
+            output_bam.write(read)
 
     input_bam.close()
     output_bam.close()

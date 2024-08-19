@@ -16,7 +16,6 @@ process BLAZE {
 
   script:
   """
-  # Default option... --expect-cells #params.blaze_expect_cells
   blaze ${fastq} \
   --expect-cells ${params.blaze_expect_cells} \
   --threads ${task.cpus} \

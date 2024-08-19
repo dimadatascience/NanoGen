@@ -17,7 +17,7 @@ process FIXTAGS {
   script:
   """
   jvarkit samjdk \
-  -e 'String s=record.getReadName(); int h=s.indexOf("#"),u=s.indexOf("_");record.setReadName(s.substring(h+1));record.setAttribute("CB",s.substring(0,u));record.setAttribute("UB",s.substring(u+1,h));return record;' \
+  -e 'String s=record.getReadName(); int h=s.indexOf("\\#"),u=s.indexOf("_");record.setReadName(s.substring(h+1));record.setAttribute("CB",s.substring(0,u));record.setAttribute("UB",s.substring(u+1,h));return record;' \
   --samoutputformat BAM \
   -o CB_UB.bam \
   ${bam}

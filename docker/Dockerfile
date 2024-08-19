@@ -30,7 +30,7 @@ ENV PATH="/mambaforge/bin/:$PATH"
 
 # mamba
 RUN mamba install --yes -c conda-forge numpy pandas scipy matplotlib openjdk pigz 
-RUN mamba install --yes -c bioconda pysam samtools=1.20 bedtools jvarkit 
+RUN mamba install --yes -c bioconda pysam samtools=1.20 bedtools 
 
 # PIP
 RUN pip install umi_tools blaze2

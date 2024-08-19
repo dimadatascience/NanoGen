@@ -3,17 +3,18 @@
     "input_fastqs" : "/Users/IEO5505/Desktop/example_scm/meta/input_fastqs.csv",
     "outdir" : "/Users/IEO5505/Desktop/example_scm/results/long_reads",
 
-    "blaze_expect_cells" : 2,
+    "blaze_expect_cells" : 100,
     "blaze_edit_distance" : 1,
 
     "minimap2_mindex" : "...",
     "minimap2_input_genome" : "...",
     "bedfile" : "...",
 
-    "min_mapping_quality" : 20,
-    "min_reads" : 3,
     "window_width" : 1000,
     "min_dist_umi_collapsing" : 1,
-    "min_base_quality" : 20
+    "min_base_quality" : 20,
+    "min_fraction" : 0.75,
+    "min_mapping_quality" : 20,
+    "min_reads" : 3
 
 }

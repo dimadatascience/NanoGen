@@ -16,7 +16,8 @@ process CONSENSUS {
 
     script:
     """ 
-    bash ${baseDir}/bin/long_reads/split_bam_by_tag_and_window_count_consensus.sh \
+    # Generate cell-target-site-UMI consensus allele counts
+    bash ${baseDir}/bin/long_reads/make_consensus.sh \
     -i ${bam} \
     -b ${params.bedfile} \
     -r ${params.minimap2_input_genome} \
@@ -26,7 +27,21 @@ process CONSENSUS {
     -m ${params.min_base_quality} \
     -d ${params.min_dist_umi_collapsing}
 
-    # Problems with realtive script paths in split_bam_by_tag_and_window_count_consensus: FIX IT
+    # Extract counts from bam-readcount output
+    python ${baseDir}/bin/long_reads/count_consensus.py \
+    -i temp_${cell}/allcounts.count \
+    -t ${bedfile} \
+    --cell_barcode ${cell} \
+    --min_read ${params.min_reads} \
+    --min_fraction ${params.min_fraction}
+
+    # Clean up
+    rm bam_header.sam
+    rm filtered_input.bam*
+    rm grouped_reads.tsv
+    rm output.bam
+    rm output.sam
+    rm -r temp_${cell}
     """
 
     stub:

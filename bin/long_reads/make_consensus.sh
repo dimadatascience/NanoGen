@@ -146,12 +146,5 @@ cd temp_$cb
 	bam-readcount -f ${reference} --site-list ${bedfile} -b $minbasequal merged.bam -p  > allcounts.count
 cd ..
 
-count_consensus.py -i temp_$cb/allcounts.count -t ${bedfile} --cell_barcode $cb --min_read $count
 
-# Cleaning
-rm bam_header.sam
-rm filtered_input.bam*
-rm grouped_reads.tsv
-rm output.bam
-rm output.sam
-rm -r temp_$cb
+##

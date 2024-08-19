@@ -18,7 +18,7 @@ process BLAZE {
   """
   # Default option... --expect-cells #params.blaze_expect_cells
   blaze ${fastq} \
-  --no-whitelisting \
+  --expect-cells ${params.blaze_expect_cells} \
   --threads ${task.cpus} \
   --output-prefix ${sample_name}_${lane}_ \
   --max-edit-distance ${params.blaze_edit_distance}

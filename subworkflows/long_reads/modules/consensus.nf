@@ -30,7 +30,7 @@ process CONSENSUS {
     # Extract counts from bam-readcount output
     python ${baseDir}/bin/long_reads/count_consensus.py \
     -i temp_${cell}/allcounts.count \
-    -t ${bedfile} \
+    -t ${params.bedfile} \
     --cell_barcode ${cell} \
     --min_read ${params.min_reads} \
     --min_fraction ${params.min_fraction}

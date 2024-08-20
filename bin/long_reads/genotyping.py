@@ -3,36 +3,7 @@
 import sys
 import pandas as pd
 import numpy as np
-from datetime import datetime
 from scipy.stats import nbinom
-# import matplotlib.pyplot as plt
-
-
-##
-
-
-# Paths and vars
-mut = sys.argv[1]
-sample_name = sys.argv[2]
-geno_pred = f'{sample_name}.xlsx'
-tsv_pred = f'{sample_name}.tsv'
-log = 'genotyping.log'
-
-
-##
-
-
-# Logging utils
-def start_log():
-    with open(log, "w") as log_file:
-        print("[INFO] Start the analysis", file=log_file)
-        check_time()
-
-def check_time():
-    with open(log, "a") as log_file:
-        now = datetime.now()
-        dt_string = now.strftime("%d/%m/%Y %H:%M:%S")
-        print("[INFO] Date and Time = {}".format(dt_string), file=log_file)
 
 
 ##
@@ -41,58 +12,38 @@ def check_time():
 # Main
 def main():
 
-    # Begin logging...
-    start_log()
+    path_input = sys.argv[1]
+    sample_name = sys.argv[2]
+    geno_pred = f'{sample_name}.xlsx'
+    tsv_pred = f'{sample_name}.tsv'
 
-    # TRY
-    try:
+    barcodes = pd.read_csv(path_input).rename(columns={'barcode':'cell'})
+    barcodes = (
+        barcodes.merge(
+            barcodes.groupby('cell')
+            .apply(lambda x: x['MIS'].values.sum() / x[['MUT', "WT", "MIS"]].values.sum() / 2).to_frame('err').reset_index(),
+            on='cell'
+        )
+    )
+    barcodes.loc[barcodes['err']==0, 'err'] = barcodes['err'].min()
 
-        pd.set_option('display.max_columns', None)
-        pd.set_option('display.max_rows', None)
+    mut = barcodes["MUT"].values
+    wt = barcodes["WT"].values
+    experimental_error = barcodes["err"].values
+    p = nbinom.cdf(k=wt, n=mut, p=experimental_error)
+    barcodes['p'] = p
 
-        barcodes = pd.read_csv(mut, index_col=[0])
-        counts_per_cell = np.sum(barcodes.loc[:, ~(barcodes.columns.isin(['barcode']))].values, axis=1)
-        counts_per_cell[counts_per_cell == 0] = np.min(counts_per_cell[counts_per_cell != 0])
-        # plt.hist(np.log10(counts_per_cell))   # Do we need to keep it, if we are not using it??
-        # plt.xlabel("Counts per cell log10")
+    genotypes = np.zeros(p.size)
+    genotypes[(wt==0) & (mut==0)] = np.nan      # Real NAs: counts mut==0 and counts wt==0
+    genotypes[p<.1] = 1                         # MUT: p WT very low (<.1)
+    genotypes[(np.isnan(p)) & (wt>=3)] = 0      # WT: p NA for counts mut == 0 and count wt>=3
+    genotypes[p>=.9] = 0                        # WT: p WT very high (>=.9)
+    genotypes[(np.isnan(p)) & (wt<3)] = np.nan  # NAs (impossible to assign): p NA for counts mut == 0 but count wt<3
+    genotypes[(p>=.1) & (p<.9)] = np.nan        # NAs (impossible to assign): p WT between .1 and .9
 
-        barcodes = barcodes[np.sum(barcodes.loc[:, ~(barcodes.columns.isin(['barcode']))].values, axis=1) > 3]
-        genes = np.unique([x[0] for x in barcodes.columns.str.split("_").values if x[0] not in ['barcode']])
-
-        genotypes = barcodes[['barcode']].copy()
-
-        experimental_error = np.sum(barcodes.loc[:, ["mis" in x for x in barcodes.columns]].values, axis=1) / np.sum(
-            barcodes.loc[:, ~(barcodes.columns.isin(['barcode']))].values, axis=1) / 2.
-        experimental_error[experimental_error > 1] = 1
-        experimental_error[experimental_error == 0] = np.min(experimental_error[experimental_error != 0])
-
-        for idx in range(len(genes)):
-            selected = barcodes.loc[:, [genes[idx] in x for x in barcodes.columns]].copy()
-            genotypes[genes[idx]] = "-"
-
-            r = selected.loc[:, ["MUT" in x for x in selected.columns]].values.squeeze()  # success
-            k = selected.loc[:, ["WT" in x for x in selected.columns]].values.squeeze()   # failure
-
-            probability_null_hypothesis_wt = nbinom.cdf(k=k, n=r, p=experimental_error)
-            genotypes.loc[probability_null_hypothesis_wt < 0.1, genes[idx]] = "MUT"
-            genotypes.loc[probability_null_hypothesis_wt >= 0.9, genes[idx]] = "WT"
-            genotypes.loc[(np.isnan(probability_null_hypothesis_wt)), genes[idx]] = "WT"  # if no mutation reads is found, then nbinom is nan
-            genotypes.loc[np.sum(selected, axis=1) < 3, genes[idx]] = ""
-
-        nan_value = float("NaN")
-        genotypes.replace("", nan_value, inplace=True)
-        genotypes.dropna(how='all', axis=1, inplace=True)
-
-        genotypes.to_excel(geno_pred, index=False)
-        genotypes.to_csv(tsv_pred, sep="\t",index=False)
-
-    # EXCEPT
-    except Exception as e:
-
-        with open(log, "a") as log_file:
-            for line in str(e).split("\n"):
-                print(f"[ERROR {line}", file=log_file)
-        raise
+    barcodes['genotype'] = np.select([genotypes==0, genotypes==1], ['WT', 'MUT'], default=np.nan)
+    barcodes.to_excel(geno_pred)
+    barcodes.to_csv(tsv_pred)
 
 
 ##

@@ -8,13 +8,6 @@ include { long_reads } from "./subworkflows/long_reads/main"
 //
 
 
-// Create a Channel of nanopore fastqs from the input csv file
-ch_fastqs = Channel.fromPath(params.input_fastqs).splitCsv(header: true).map { row -> [row.sample, row.lane, row.fastq]}
-
-
-//
-
-
 //----------------------------------------------------------------------------//
 // SCM-seq pipeline entry points
 //----------------------------------------------------------------------------//
@@ -23,6 +16,8 @@ ch_fastqs = Channel.fromPath(params.input_fastqs).splitCsv(header: true).map { r
 
 workflow LONG_READS {
 
+    // Create a Channel of nanopore fastqs from the input csv file
+    ch_fastqs = Channel.fromPath(params.input_fastqs).splitCsv(header: true).map { row -> [row.sample, row.lane, row.fastq]}
     long_reads(ch_fastqs)
     long_reads.out.results.view()
 

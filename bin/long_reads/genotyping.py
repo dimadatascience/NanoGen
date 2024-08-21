@@ -16,14 +16,18 @@ def main():
     sample_name = sys.argv[2]
     geno_pred = f'{sample_name}.xlsx'
     tsv_pred = f'{sample_name}.tsv'
+    # path_input = '/Users/IEO5505/Desktop/scmseq_new/scratch/counts.tsv.gz'
 
+    pseudocount = .000000001
     barcodes = pd.read_csv(path_input).rename(columns={'barcode':'cell'})
-    barcodes = (
-        barcodes.merge(
-            barcodes.groupby('cell')
-            .apply(lambda x: x['MIS'].values.sum() / x[['MUT', "WT", "MIS"]].values.sum() / 2).to_frame('err').reset_index(),
-            on='cell'
-        )
+    grouped = barcodes.groupby('cell')
+    barcodes = barcodes.merge(    
+        ( 
+            (grouped['MIS'].sum() / 
+            (grouped[['MUT', "WT", "MIS"]].sum().sum(axis=1) + pseudocount) / 2)
+            .to_frame('err').reset_index()
+        ),
+        on='cell'
     )
     barcodes.loc[barcodes['err']==0, 'err'] = barcodes['err'].min()
 

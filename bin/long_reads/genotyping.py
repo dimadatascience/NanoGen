@@ -45,7 +45,8 @@ def main():
     genotypes[(np.isnan(p)) & (wt<3)] = np.nan  # NAs (impossible to assign): p NA for counts mut == 0 but count wt<3
     genotypes[(p>=.1) & (p<.9)] = np.nan        # NAs (impossible to assign): p WT between .1 and .9
 
-    barcodes['genotype'] = np.select([genotypes==0, genotypes==1], ['WT', 'MUT'], default=np.nan)
+    barcodes['genotype'] = np.select([genotypes==0, genotypes==1], ['WT', 'MUT'], default='-')
+    barcodes.loc[barcodes['genotype']=='-','genotype'] = np.nan
     barcodes.to_excel(geno_pred)
     barcodes.to_csv(tsv_pred)
 

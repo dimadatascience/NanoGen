@@ -14,8 +14,6 @@ def main():
 
     path_input = sys.argv[1]
     sample_name = sys.argv[2]
-    geno_pred = f'{sample_name}.xlsx'
-    tsv_pred = f'{sample_name}.tsv'
     # path_input = '/Users/IEO5505/Desktop/scmseq_new/scratch/counts.tsv.gz'
 
     pseudocount = .000000001
@@ -47,8 +45,7 @@ def main():
 
     barcodes['genotype'] = np.select([genotypes==0, genotypes==1], ['WT', 'MUT'], default='-')
     barcodes.loc[barcodes['genotype']=='-','genotype'] = np.nan
-    barcodes.to_excel(geno_pred)
-    barcodes.to_csv(tsv_pred)
+    barcodes.to_csv(f'{sample_name}.csv')
 
 
 ##

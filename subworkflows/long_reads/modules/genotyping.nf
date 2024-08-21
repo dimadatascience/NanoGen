@@ -14,7 +14,7 @@ process GENOTYPING {
     tuple val(sample), path(counts)
  
     output:
-    tuple val(sample), path("${sample}.xlsx"), path("${sample}.tsv"), emit: genotypes
+    tuple val(sample), path("${sample}.csv"), emit: genotypes
  
     script:
     """
@@ -23,8 +23,7 @@ process GENOTYPING {
 
     stub:
     """
-    touch ${sample}.xlsx
-    touch ${sample}.tsv
+    touch ${sample}.csv
     """
  
 }

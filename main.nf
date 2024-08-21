@@ -1,108 +1,38 @@
-// mi_to_preprocessing, working now
+// SCMSEQ_NEW, first version
 nextflow.enable.dsl = 2
 
 // Include here
-include { bulk_gbc } from "./subworkflows/bulk_gbc/main"
-include { tenx } from "./subworkflows/tenx/main"
-include { sc_gbc } from "./subworkflows/sc_gbc/main"
-include { maester } from "./subworkflows/maester/main"
-include { test_fgbio } from "./subworkflows/test_fgbio/main"
-
-
-//
-
-
-// (Bulk DNA) targeted DNA sequencing of GBC
-ch_bulk_gbc = Channel
-    .fromPath("${params.bulk_gbc_indir}/*", type:'dir') 
-    .map{ tuple(it.getName(), it) }
-    
-// GBC enrichment from 10x library
-ch_sc_gbc = Channel
-    .fromPath("${params.sc_gbc_indir}/*", type:'dir')
-    .map{ tuple(it.getName(), it) }
-
-// 10x GEX library
-ch_tenx = Channel
-    .fromPath("${params.sc_tenx_indir}/*", type:'dir')
-    .map{ tuple(it.getName(), it) }
-
-// MAESTER library
-ch_maester = Channel
-    .fromPath("${params.sc_maester_indir}/*", type:'dir') 
-    .map{ tuple(it.getName(), it) }
-
-// Test
-ch_bams = Channel.fromPath("${params.test_bams}/*") 
+include { long_reads } from "./subworkflows/long_reads/main"
 
 
 //
 
 
 //----------------------------------------------------------------------------//
-// mito_preprocessing pipeline
+// SCM-seq pipeline entry points
 //----------------------------------------------------------------------------//
 
 //
 
-workflow TENX {
+workflow LONG_READS {
 
-    tenx(ch_tenx)
-
-}
-   
-//
-
-workflow TENX_MITO {
-
-    tenx(ch_tenx)
-    maester(ch_maester, tenx.out.filtered, tenx.out.bam)
-
-} 
-
-//
-
-workflow BULK_GBC {
- 
-    bulk_gbc(ch_bulk_gbc)
+    // Create a Channel of nanopore fastqs from the input csv file
+    ch_fastqs = Channel.fromPath(params.input_fastqs).splitCsv(header: true).map { row -> [row.sample, row.lane, row.fastq]}
+    long_reads(ch_fastqs)
+    long_reads.out.results.view()
 
 }
 
 //
 
-workflow TENX_GBC {
-
-    tenx(ch_tenx)
-    sc_gbc(ch_sc_gbc, tenx.out.filtered)
-    sc_gbc.out.summary.view()
-
-}
-
-//
-
-workflow TENX_GBC_MITO {
-
-    tenx(ch_tenx)
-    sc_gbc(ch_sc_gbc, tenx.out.filtered)
-    maester(ch_maester, tenx.out.filtered, tenx.out.bam)
-    maester.out.afm.view()
-
-}
-
-//
-
-workflow TEST_FGBIO {
- 
-    test_fgbio(ch_bams)
-    test_fgbio.out.results.view()
- 
-}
-
-//
-
-// Mock
+// Default message
 workflow {
     
-    Channel.of(1,2,3,4) | view
+    println "\n"
+    println "Hi there! This is the new version of the SCM-seq pre-processing toolkit. The LONG_READS entry point is currently supported."
+    println "Usage: nextflow run main.nf -c <config> -params-file <params> -profile <profile> -entry LONG_READS"
+    println "See https://github.com/dimadatascience/scmseq_new/blob/develop/main.nf ./config and ./params for configurations and options available."
+    println "N.B. BETA version under active development."
+    println "\n"
 
 }

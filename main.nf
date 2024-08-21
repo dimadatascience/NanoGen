@@ -1,4 +1,4 @@
-// SCMSEQ_NEW, first commit
+// SCMSEQ_NEW, first version
 nextflow.enable.dsl = 2
 
 // Include here

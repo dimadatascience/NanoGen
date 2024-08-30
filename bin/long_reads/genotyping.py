@@ -32,6 +32,7 @@ def main():
     mut = barcodes["MUT"].values
     wt = barcodes["WT"].values
     experimental_error = barcodes["err"].values
+    experimental_error[experimental_error<1e-4] = 1e-4
     p = nbinom.cdf(k=wt, n=mut, p=experimental_error)
     barcodes['p'] = p
 

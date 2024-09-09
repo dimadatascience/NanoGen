@@ -22,7 +22,7 @@ class WorkflowMain {
     // Generate help string
     //
     public static String help(workflow, params, log) {
-        def command = "nextflow run main.nf -c <config> -params-file <params> -profile <profile> -entry LONG_READS"
+        def command = "nextflow run main.nf -c <config> -profile <profile> -entry LONG_READS"
         def help_string = ''
         help_string += NfcoreTemplate.logo(workflow, params.monochrome_logs)
         help_string += NfcoreSchema.paramsHelp(workflow, params, command)

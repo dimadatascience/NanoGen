@@ -281,6 +281,14 @@
                     "fa_icon": "fas fa-blaze-dist",
                     "hidden": true,
                     "help_text": "Use this to change the distance to collapse UMI within the same group."
+                },
+                "baseline_error": {
+                    "type": "number",
+                    "description": "Baseline error",
+                    "default": 0.0001,
+                    "fa_icon": "fas fa-baseerror-dist",
+                    "hidden": true,
+                    "help_text": "Baseline error modelling implicitally all sources of error not accounted for."
                 }
 
             }

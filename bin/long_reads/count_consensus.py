@@ -128,7 +128,7 @@ def main():
     """
     Generate count matrix based of consensus base at positions within target position.
     """
-    
+
     # Parse input
     args = _parse_args()
 
@@ -148,17 +148,19 @@ def main():
             chrom = line.split("\t")[0]
             start_pos = int(line.split("\t")[1])
             ref = line.split("\t")[2]
-            alt = target["alt"][
+            alts = target["alt"][
                 (target["chr"] == chrom)
                 & (target["start"] == start_pos)
                 & (target["ref"] == ref)
             ]
-            assert len(alt) == 1
-            alt = alt.values[0]
-            for val in ["WT", "MUT", "MIS"]:
-                target.loc[
-                    (target["chr"] == chrom) & (target["start"] == start_pos), val
-                ] = consensus_on_umi(line, ref, alt)[val]
+            for alt in alts:
+                for val in ["WT", "MUT", "MIS"]:
+                    target.loc[
+                        (target["chr"] == chrom)
+                        & (target["start"] == start_pos)
+                        & (target["alt"] == alt),
+                        val,
+                    ] = consensus_on_umi(line, ref, alt)[val]
 
     target["barcode"] = args.cell_barcode
     target.to_csv(f"{args.cell_barcode}_table.csv", index=False)

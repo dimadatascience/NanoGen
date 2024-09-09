@@ -106,6 +106,8 @@ if [ -f "$bedfile" ]; then
 else
 	cp $input filtered_input.bam
 fi
+samtools sort filtered_input.bam -o sorted.bam
+mv sorted.bam filtered_input.bam
 samtools index filtered_input.bam
 
 # Group using umi_tools

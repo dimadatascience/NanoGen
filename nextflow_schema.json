@@ -39,8 +39,8 @@
             "fa_icon": "fas fa-dna",
             "description": "Reference genome related files and options required for the workflow.",
             "required": [
-                "fasta",
-                "outdir"
+                "minimap2_input_genome",
+                "minimap2_mindex"
             ],
             "properties": {
                 "minimap2_input_genome": {

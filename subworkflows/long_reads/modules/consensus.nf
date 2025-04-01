@@ -27,7 +27,7 @@ process CONSENSUS {
     -m ${params.min_base_quality} \
     -d ${params.min_dist_umi_collapsing}
 
-    # Extract counts from bam-readcount output
+    # Extract counts from bam-readcount output!!!!
     python ${baseDir}/bin/long_reads/count_consensus.py \
     -i temp_${cell}/allcounts.count \
     -t ${params.bedfile} \

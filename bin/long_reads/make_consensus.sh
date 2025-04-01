@@ -122,6 +122,7 @@ samtools view -q $quality filtered_input.bam | awk -v win=$window -v outdir="tem
         if($i ~ /^BX:Z:/) {
             fname = outdir substr($i, 6) "_" $3 "_" int($4/win)*win ".sam";
             print $0 >> fname;
+            close(fname)
         }
     }
 }'

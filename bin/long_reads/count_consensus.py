@@ -85,7 +85,10 @@ def consensus_on_umi(line, ref, alt, min_fraction=0.75, min_consensus=3):
                        block, divided by consensus types ('WT', 'MUT', 'MIS').
     """
     # Regex to extract data within curly braces
-    data_blocks = re.findall(r"\{([^}]*)\}", line)
+    if "{" in line:
+        data_blocks = re.findall(r"\{([^}]*)\}", line)
+    else:
+        data_blocks = [line]
 
     results = []
     consensus_counts = {"WT": 0, "MUT": 0, "MIS": 0}
@@ -96,22 +99,30 @@ def consensus_on_umi(line, ref, alt, min_fraction=0.75, min_consensus=3):
 
         # Process each entry
         for entry in entries:
-            parts = entry.split(":")
-            base = parts[0]
-            read_count = int(parts[1])
-
-            if base == ref:
-                counts[ref] = read_count
-            elif base == alt:
-                counts[alt] = read_count
-            elif base != "N":
-                counts["mis"] += read_count
+            if ":" in entry:
+                parts = entry.split(":")
+                base = parts[0]
+                read_count = int(parts[1])
+                if base == ref:
+                    counts[ref] = read_count
+                elif len(alt) <= 3 and base == alt:
+                    counts[alt] = read_count
+                elif len(alt) > 3 and len(base) > 3 and (base in alt or alt in base):
+                    counts[alt] = np.maximum(read_count, counts[alt])
+                elif base != "N":
+                    counts["mis"] += read_count
 
         maximum = np.max([counts[ref], counts[alt]])
         count_values = np.array(list(counts.values()))
+        key = np.array(list(counts.keys()))[count_values == np.max(count_values)]
 
-        if maximum >= min_consensus and maximum / np.sum(count_values) >= min_fraction:
-            key = np.array(list(counts.keys()))[count_values == np.max(count_values)]
+        if len(alt) > 3 and counts[alt] > 3:
+            consensus_counts["MUT"] += 1
+        elif len(alt) > 3 and counts[alt] <= 3:
+            consensus_counts["WT"] += 1
+        elif (
+            maximum >= min_consensus and maximum / np.sum(count_values) >= min_fraction
+        ):
             if key == ref:
                 consensus_counts["WT"] += 1
             elif key == alt:

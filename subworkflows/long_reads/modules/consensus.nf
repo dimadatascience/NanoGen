@@ -35,6 +35,7 @@ process CONSENSUS {
     --min_read ${params.min_reads} \
     --min_fraction ${params.min_fraction}
 
+
     # Clean up
     rm bam_header.sam
     rm filtered_input.bam*

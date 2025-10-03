@@ -71,11 +71,11 @@ def main():
         np.nan
     )  # Real NAs: counts mut==0 and counts wt==0
     genotypes[p < 0.1] = 1  # MUT: p WT very low (<.1)
-    genotypes[(np.isnan(p)) & (wt >= 3)] = (
+    genotypes[(np.isnan(p)) & (wt >= 2)] = (
         0  # WT: p NA for counts mut == 0 and count wt>=3
     )
     genotypes[p >= 0.9] = 0  # WT: p WT very high (>=.9)
-    genotypes[(np.isnan(p)) & (wt < 3)] = (
+    genotypes[(np.isnan(p)) & (wt < 2)] = (
         np.nan
     )  # NAs (impossible to assign): p NA for counts mut == 0 but count wt<3
     genotypes[(p >= 0.1) & (p < 0.9)] = (

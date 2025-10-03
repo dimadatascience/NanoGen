@@ -52,7 +52,7 @@ def _parse_args():
         type=int,
         default=3,
         required=False,
-        help="Barcode of the cell.",
+        help="The minimum number of reads supporting a base required to consider it for consensus.",
     )
     args = parser.parse_args()
     return args
@@ -171,7 +171,7 @@ def main():
                         & (target["start"] == start_pos)
                         & (target["alt"] == alt),
                         val,
-                    ] = consensus_on_umi(line, ref, alt)[val]
+                    ] = consensus_on_umi(line, ref, alt, args.min_fraction, args.min_read)[val]
 
     target["barcode"] = args.cell_barcode
     target.to_csv(f"{args.cell_barcode}_table.csv", index=False)

@@ -105,9 +105,9 @@ def consensus_on_umi(line, ref, alt, min_fraction=0.75, min_consensus=3):
                 read_count = int(parts[1])
                 if base == ref:
                     counts[ref] = read_count
-                elif len(alt) <= 3 and base == alt:
+                elif len(alt) <= 2 and base == alt:
                     counts[alt] = read_count
-                elif len(alt) > 3 and len(base) > 3 and (base in alt or alt in base):
+                elif len(alt) > 2 and len(base) > 2 and (base in alt or alt in base):
                     counts[alt] = np.maximum(read_count, counts[alt])
                 elif base != "N":
                     counts["mis"] += read_count
@@ -116,10 +116,10 @@ def consensus_on_umi(line, ref, alt, min_fraction=0.75, min_consensus=3):
         count_values = np.array(list(counts.values()))
         key = np.array(list(counts.keys()))[count_values == np.max(count_values)]
 
-        if len(alt) > 3 and counts[alt] > 3:
+        if len(alt) == 2 and counts[alt] > 2 and counts[alt]/(counts[ref] + counts[alt]) > 0.25:
             consensus_counts["MUT"] += 1
-        elif len(alt) > 3 and counts[alt] <= 3:
-            consensus_counts["WT"] += 1
+        elif len(alt) > 3 and counts[alt] > 3:
+            consensus_counts["MUT"] += 1
         elif (
             maximum >= min_consensus and maximum / np.sum(count_values) >= min_fraction
         ):

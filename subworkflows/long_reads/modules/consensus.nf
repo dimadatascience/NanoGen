@@ -27,6 +27,7 @@ process CONSENSUS {
     -m ${params.min_base_quality} \
     -d ${params.min_dist_umi_collapsing}
 
+
     # Extract counts from bam-readcount output!!!!
     python ${baseDir}/bin/long_reads/count_consensus.py \
     -i temp_${cell}/allcounts.count \
@@ -34,7 +35,7 @@ process CONSENSUS {
     --cell_barcode ${cell} \
     --min_read ${params.min_reads} \
     --min_fraction ${params.min_fraction}
-
+    
 
     # Clean up
     rm bam_header.sam

@@ -16,7 +16,13 @@ process MERGE_READS {
 
   script:
   """
-  zcat ${fastqs} | pigz --fast -p ${task.cpus} > matched_reads.fastq.gz
+  for file in ${fastqs}; do
+    if [[ \$file == *.gz ]]; then
+      zcat "\$file"
+    else
+      cat "\$file"
+    fi
+  done | pigz --fast -p ${task.cpus} > matched_reads.fastq.gz
   """
 
   stub:

@@ -1,14 +1,16 @@
 """Which base quality does bam-readcount -b apply to a deletion? For reads with a deletion starting
-at the KIT site, count how many pass q >= 20 under candidate definitions (anchor base before the
+at the indel target site (first indel row of the BED), count how many pass q >= 20 under candidate definitions (anchor base before the
 deletion, first base after it, min/mean of both). Compare with bam-readcount -b 20 counts."""
 import sys
 from collections import Counter
 
 import pysam
 
-S0 = 54723602  # 0-based first deleted base
+bed = [l.split("\t") for l in open(sys.argv[2])]
+CHR, START = next((f[0], int(f[1])) for f in bed if f[4][0] in "+-")
+S0 = START - 1  # 0-based first deleted base
 c = Counter()
-for r in pysam.AlignmentFile(sys.argv[1]).fetch("chr4", S0 - 1, S0 + 1):
+for r in pysam.AlignmentFile(sys.argv[1]).fetch(CHR, S0 - 1, S0 + 1):
     if r.mapping_quality < 20 or r.cigartuples is None:
         continue
     rp, qp = r.reference_start, 0

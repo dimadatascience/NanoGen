@@ -1,4 +1,4 @@
-"""What are the giant UMI groups at the KIT site? Size distribution of bam-readcount libraries at the
+"""What are the giant UMI groups at the indel target site? Size distribution of bam-readcount libraries at the
 indel target, and for groups with >= 50 reads: UMI composition (missing / low complexity / dominant
 base), cells involved, and new-rule labels. Aggregates only."""
 import glob
@@ -12,7 +12,9 @@ import pandas as pd
 sys.path.insert(0, os.path.dirname(__file__))
 from kit_indel import NMIN_MAIN, main_label, new_counts, parse_line, uniform_label  # noqa: E402
 
-cells_dir, chrom, pos, ref, alt = sys.argv[1], "chr4", 54723603, "T", "-TTA"
+cells_dir = sys.argv[1]
+chrom, pos, ref, alt = next((f[0], int(f[1]), f[3], f[4]) for f in (l.rstrip("\n").split("\t") for l in open(sys.argv[2]))
+                            if f[4][0] in "+-")
 rows = []
 for cd in sorted(glob.glob(os.path.join(cells_dir, "*"))):
     cp = os.path.join(cd, "allcounts.count")

@@ -117,6 +117,14 @@
                     "fa_icon": "fas fa-question-circle",
                     "hidden": true
                 },
+                "container": {
+                    "type": "string",
+                    "default": "ghcr.io/dimadatascience/nanogen@sha256:DIGEST_PLACEHOLDER",
+                    "description": "Container image used by every process, referenced by digest.",
+                    "help_text": "Defaults to the pinned image built by `.github/workflows/docker.yml` from `docker/`. Override only to test a new image.",
+                    "fa_icon": "fab fa-docker",
+                    "hidden": true
+                },
                 "publish_dir_mode": {
                     "type": "string",
                     "default": "copy",

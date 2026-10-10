@@ -74,6 +74,10 @@ chr, start position of target mutation, end position of target mutation, referen
 
 To be noted, start and end position are the same for SNP
 
+### Container
+
+Every process runs in one pinned image, `ghcr.io/dimadatascience/nanogen`, referenced by digest through `params.container` in `nextflow.config`. Use `-profile docker` or `-profile singularity`. The image is built from `docker/` by the `docker` GitHub workflow, which reports the new digest; bump `params.container` (and its default in `nextflow_schema.json`) in a PR to adopt it.
+
 ## 👥 Authors
 
 Andrea Cossa, Yinxiu Zhan

@@ -1,0 +1,31 @@
+# NanoGen runtime environment. Every version is pinned exactly; versions match
+# the previous acox1/scmseq:1.0 image so pipeline behaviour is unchanged.
+name: nanogen
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - python=3.10.14
+  - numpy=2.0.1
+  - pandas=2.2.2
+  - scipy=1.14.0
+  - matplotlib-base=3.9.2
+  - pysam=0.22.1
+  - samtools=1.20
+  - htslib=1.20
+  - bedtools=2.31.1
+  - minimap2=2.28
+  - bam-readcount=1.0.1
+  - pigz=2.8
+  - pip=24.2
+  - setuptools=69.5.1
+  - pytest=8.3.3
+  - pip:
+      - blaze2==2.4.0
+      - fast-edit-distance==1.2.1
+      - umi_tools==1.1.5
+      - cython==3.0.11
+      - future==1.0.0
+      - pybktree==1.1
+      - regex==2024.7.24
+      - tqdm==4.66.2

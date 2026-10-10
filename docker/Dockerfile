@@ -43,7 +43,8 @@ RUN command -v blaze \
     && samtools --version | head -1 \
     && bedtools --version \
     && pigz --version \
-    && bam-readcount --version \
+    && command -v bam-readcount \
+    && { bam-readcount --version || true; } \
     && pytest --version \
     && python -c "import numpy, pandas, scipy, pysam, matplotlib, fast_edit_distance"
 

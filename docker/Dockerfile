@@ -1,30 +1,24 @@
 # NanoGen image
 #
 # Fully pinned: base image by digest, Miniforge release by checksum, conda and
-# pip packages by exact version (environment.yml), bam-readcount by tag and
-# commit. Built and pushed by .github/workflows/docker.yml; the pipeline
-# references the result by digest (params.container).
+# pip packages (bam-readcount included) by exact version in environment.yml.
+# Built and pushed by .github/workflows/docker.yml; the pipeline references the
+# result by digest (params.container).
 
 ################################################################
 
-FROM debian:bullseye-slim@sha256:e5b6442dd2e9684cf5e87d8338b5968f3b348636fc0be6d7850a381e3731a2bd
+FROM debian:bookworm-slim@sha256:7c7b2c966bc9ee8cedfeef67e0e279108992c77681fa595db4a9d65c06ccc587
 
 LABEL org.opencontainers.image.source="https://github.com/dimadatascience/NanoGen"
 LABEL org.opencontainers.image.description="NanoGen pipeline runtime"
 
-## Compilers, utilities, git
+## Compilers (umi_tools builds from source), utilities
 RUN apt-get --quiet update --yes \
     && apt-get --quiet install --yes --no-install-recommends \
       ca-certificates \
-      libcurl4-openssl-dev \
-      libssl-dev \
-      libxml2-dev \
       build-essential \
-      zlib1g-dev \
       wget \
       procps \
-      git \
-      cmake \
     && rm -rf /var/lib/apt/lists/*
 
 ## Miniforge
@@ -41,17 +35,6 @@ RUN /opt/conda/bin/mamba env create --file /tmp/environment.yml \
     && /opt/conda/bin/conda clean --all --yes \
     && rm /tmp/environment.yml
 ENV PATH="/opt/conda/envs/nanogen/bin:/opt/conda/bin:$PATH"
-
-## bam-readcount, build
-ARG BAM_READCOUNT_VERSION=v1.0.1
-ARG BAM_READCOUNT_COMMIT=944c11fe08ca7330fbf7a5783aff75976714c0d4
-RUN git clone --branch ${BAM_READCOUNT_VERSION} --depth 1 https://github.com/genome/bam-readcount /opt/bam-readcount \
-    && test "$(git -C /opt/bam-readcount rev-parse HEAD)" = "${BAM_READCOUNT_COMMIT}" \
-    && mkdir /opt/bam-readcount/build \
-    && cd /opt/bam-readcount/build \
-    && cmake .. \
-    && make
-ENV PATH="/opt/bam-readcount/build/bin:$PATH"
 
 ## Smoke test: every tool the pipeline calls is on PATH
 RUN command -v blaze \

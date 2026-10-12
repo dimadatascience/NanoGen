@@ -18,7 +18,8 @@ process CONSENSUS {
     """ 
     # Generate cell-target-site-UMI consensus allele counts. The window (-w) and
     # UMI distance (-d) are fixed at the former params' defaults until cell x target
-    # grouping replaces umi_tools and the windows.
+    # grouping replaces umi_tools and the windows. bam-readcount runs once per
+    # target type: -b snv_min_base_quality at SNVs, no base-quality filter at indels.
     bash ${baseDir}/bin/long_reads/make_consensus.sh \
     -i ${bam} \
     -b ${params.bedfile} \

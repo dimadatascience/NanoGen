@@ -66,6 +66,7 @@ SCENARIOS = (
     "del_lowq",  # an exact DEL molecule whose anchor base has quality 5
     "ins",  # an INS molecule
     "hp_del",  # a homopolymer 1 bp deletion molecule
+    "snv_lowq",  # an ALT molecule at SNV2 whose SNV base has quality 5
 )
 
 
@@ -131,9 +132,10 @@ class Umis:
 
 
 def make_read(header, contig, name, cell, umi, start, snv=None, indel=None,
-              anchor_qual=None, flag=0):
+              site_qual=None, flag=0):
     """A read over contig[start:start + READ_LEN], with an SNV (pos0, base) or an
-    indel (anchor0, '-SEQ' / '+SEQ') planted after the 0-based anchor."""
+    indel (anchor0, '-SEQ' / '+SEQ') planted after the 0-based anchor. site_qual
+    sets the quality of the SNV base or of the indel anchor."""
     seq = contig[start:start + READ_LEN]
     cigar = [(0, READ_LEN)]
     if snv:
@@ -150,8 +152,8 @@ def make_read(header, contig, name, cell, umi, start, snv=None, indel=None,
             seq = seq[:n] + alt[1:] + seq[n:]
             cigar = [(0, n), (1, size), (0, READ_LEN - n)]
     quals = [QUAL] * len(seq)
-    if anchor_qual is not None:
-        quals[indel[0] - start] = anchor_qual
+    if site_qual is not None:
+        quals[(snv or indel)[0] - start] = site_qual
 
     read = pysam.AlignedSegment(header)
     read.query_name = name
@@ -212,7 +214,7 @@ def molecules(contig, bed, oth, umis):
     yield CELL_MIX, "hp_del", "hp", umis.new(CELL_MIX), indel_reads("HP", [site["HP"][2]] * 4)
     yield CELL_MIX, "wt", "hp", umis.new(CELL_MIX), ref_reads("HP", 4)
 
-    # Cell with the deletion scenarios
+    # Cell with the deletion scenarios and the low-quality SNV base
     anchor, alt = anchor_of("DEL"), site["DEL"][2]
     longer = alt + contig[anchor + len(alt)]
     shifted = "-" + contig[anchor + 2:anchor + 1 + len(alt)]  # same length, 1 bp right
@@ -221,7 +223,9 @@ def molecules(contig, bed, oth, umis):
     del_k.append(dict(start=del_k[-1]["start"] + 3, indel=(anchor + 1, shifted)))
     yield CELL_DEL, "del_k", "del", umis.new(CELL_DEL), del_k
     yield CELL_DEL, "del_lowq", "del", umis.new(CELL_DEL), indel_reads(
-        "DEL", [alt] * 4, anchor_qual=LOW_QUAL)
+        "DEL", [alt] * 4, site_qual=LOW_QUAL)
+    yield CELL_DEL, "snv_lowq", "snv2", umis.new(CELL_DEL), [
+        dict(r, site_qual=LOW_QUAL) for r in snv_reads("SNV2", alt2, 4)]
 
 
 def build(outdir):

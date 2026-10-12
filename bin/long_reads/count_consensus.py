@@ -205,7 +205,7 @@ def count_targets(target, lines, min_fraction=0.75, min_consensus=3):
 
     Parameters:
         target (pd.DataFrame): Targets with columns ['chr', 'start', 'end', 'ref', 'alt', 'gene'].
-        lines (Iterable[str]): bam-readcount -p output lines.
+        lines (Iterable[str]): bam-readcount -p output lines, SNV pass before indel pass.
         min_fraction (float, optional): See label_cluster. Defaults to 0.75.
         min_consensus (int, optional): See label_cluster. Defaults to 3.
 
@@ -215,6 +215,9 @@ def count_targets(target, lines, min_fraction=0.75, min_consensus=3):
     target = target.copy()
     target[["WT", "MUT", "OTH"]] = 0
 
+    # A site with both an SNV and an indel target has one line per bam-readcount
+    # pass, the SNV pass first: SNV alts are scored on the first, indel alts on the last
+    scored_snvs = set()
     for line in lines:
         chrom, start_pos, ref, clusters = parse_readcount_line(line)
         alts = target["alt"][
@@ -223,6 +226,10 @@ def count_targets(target, lines, min_fraction=0.75, min_consensus=3):
             & (target["ref"] == ref)
         ]
         for alt in alts:
+            if not alt.startswith(("+", "-")):
+                if (chrom, start_pos, alt) in scored_snvs:
+                    continue
+                scored_snvs.add((chrom, start_pos, alt))
             counts = tally_clusters(clusters, ref, alt, min_fraction, min_consensus)
             # Rows are matched on chr, start and alt only, as on main
             for val in ["WT", "MUT", "OTH"]:

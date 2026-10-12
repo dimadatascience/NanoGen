@@ -11,7 +11,7 @@ function help {
     echo "This script groups reads based on UMIs using UMI tools."
     echo "It splits a BAM file based on BX:Z: tags and a specified window around the mapping positions."
     echo "Reads are first filtered to only include those overlapping with regions specified in a BED file."
-    echo "Reads must meet a minimum mapping and base quality threshold."
+    echo "Reads must meet a minimum mapping quality, and a minimum base quality at SNV targets."
     echo ""
     echo "---------------"
     echo "OPTIONS"
@@ -20,7 +20,7 @@ function help {
     echo "   -b|--bed BEDFILE : BED file with genomic coordinates for filtering in the following format: ['chr', 'start', 'end', 'ref', 'alt', 'gene']"
     echo "   -r|--reference REFERENCE : Reference FASTA file"
     echo "   -q|--quality QUALITY : Minimum mapping quality of reads, default 20"
-    echo "   -m|--minbasequal MINBASEQUAL : Minimum base quality, default 20"
+    echo "   -m|--minbasequal MINBASEQUAL : Minimum base quality at SNV targets, default 20. Indel targets have no base-quality filter"
     echo "   -c|--count COUNT : Minimum read count supporting UMI to generate a BAM file, default 3"
     echo "   -d|--umidist UMIDIST : Maximum distance to collapse UMIs using umitools group. Default 1."
     echo "   -w|--window WINDOW : Window size (in bp) for grouping reads around their mapping positions. Default 1000"
@@ -146,7 +146,18 @@ cd temp_$cb
 	done
 	samtools merge merged.bam $allbams
 	samtools index merged.bam
-	bam-readcount -f ${reference} --site-list ${bedfile} -b $minbasequal merged.bam -p  > allcounts.count
+	# One bam-readcount pass per target type, concatenated SNV pass first: SNV
+	# targets keep the base-quality filter, indel targets have none, as it would
+	# drop a deletion on its anchor base. A pass with no targets is skipped.
+	awk -F'\t' '$5 !~ /^[+-]/' ${bedfile} > snv_targets.bed
+	awk -F'\t' '$5 ~ /^[+-]/' ${bedfile} > indel_targets.bed
+	: > allcounts.count
+	if [ -s snv_targets.bed ]; then
+		bam-readcount -f ${reference} --site-list snv_targets.bed -b $minbasequal merged.bam -p >> allcounts.count
+	fi
+	if [ -s indel_targets.bed ]; then
+		bam-readcount -f ${reference} --site-list indel_targets.bed -b 0 merged.bam -p >> allcounts.count
+	fi
 cd ..
 
 

@@ -34,4 +34,75 @@ nextflow_workflow {
 
     }
 
+    test("indel targets have no base-quality filter, SNV targets keep it") {
+
+        when {
+            params {
+                bedfile                 = "${baseDir}/tests/fixtures/synthetic/targets.bed"
+                minimap2_input_genome   = "${baseDir}/tests/fixtures/synthetic/contig.fa"
+                outdir                  = "${outputDir}/results"
+            }
+            workflow {
+                """
+                input[0] = Channel.fromPath('${baseDir}/tests/fixtures/synthetic/cells/*.bam')
+                    .map { bam -> ['S1', bam.baseName, bam] }
+                """
+            }
+        }
+
+        then {
+            assert workflow.success
+            def lines = path(workflow.out.counts.get(0).get(1)).linesGzip
+            def header = lines[0].split(",").toList()
+            def rows = lines.drop(1).collect { [header, it.split(",", -1).toList()].transpose().collectEntries() }
+            def counts = { gene, cell ->
+                rows.find { it.gene == gene && it.barcode == cell }.subMap(["WT", "MUT", "OTH"])
+            }
+
+            // wt is WT and del_k MUT; del_lowq is MUT only if its quality-5 anchor is kept
+            assert counts("DEL", "AAACCCAAGAAACCCA") == [WT: "1", MUT: "2", OTH: "0"]
+            // snv_lowq's ALT bases have quality 5, so they are still filtered out
+            assert counts("SNV2", "AAACCCAAGAAACCCA") == [WT: "0", MUT: "0", OTH: "0"]
+        }
+
+    }
+
+    test("SNV-only BED") {
+
+        when {
+            params {
+                def bed = new File("${outputDir}/targets_snv.bed")
+                bed.parentFile.mkdirs()
+                bed.text = new File("${baseDir}/tests/fixtures/synthetic/targets.bed").readLines()
+                    .findAll { !(it.split("\t")[4] =~ /^[+-]/) }
+                    .collect { it + "\n" }.join("")
+
+                bedfile                 = bed.toString()
+                minimap2_input_genome   = "${baseDir}/tests/fixtures/synthetic/contig.fa"
+                outdir                  = "${outputDir}/results"
+            }
+            workflow {
+                """
+                input[0] = Channel.fromPath('${baseDir}/tests/fixtures/synthetic/cells/*.bam')
+                    .map { bam -> ['S1', bam.baseName, bam] }
+                """
+            }
+        }
+
+        then {
+            assert workflow.success
+            // The SNV rows of the single-pass (-b snv_min_base_quality) run
+            assert path(workflow.out.counts.get(0).get(1)).linesGzip == [
+                "chr,start,end,ref,alt,gene,WT,MUT,OTH,barcode",
+                "chrF,301,301,A,G,SNV1,2,3,0,AAACCCAAGAAACACT",
+                "chrF,701,701,A,G,SNV2,0,0,0,AAACCCAAGAAACACT",
+                "chrF,301,301,A,G,SNV1,0,0,0,AAACCCAAGAAACCAT",
+                "chrF,701,701,A,G,SNV2,1,2,0,AAACCCAAGAAACCAT",
+                "chrF,301,301,A,G,SNV1,0,0,0,AAACCCAAGAAACCCA",
+                "chrF,701,701,A,G,SNV2,0,0,0,AAACCCAAGAAACCCA",
+            ]
+        }
+
+    }
+
 }

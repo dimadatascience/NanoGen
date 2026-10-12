@@ -2,43 +2,39 @@
     "synthetic fixture sample": {
         "content": [
             [
-                "",
-                "chr",
-                "start",
-                "end",
-                "ref",
-                "alt",
+                "cell",
+                "target_id",
                 "gene",
+                "type",
                 "WT",
                 "MUT",
-                "MIS",
-                "cell",
+                "OTH",
                 "err",
                 "p",
                 "genotype"
             ],
             [
-                "chrF,1002,1002,T,-TTA,DEL,0,0,0,AAACCCAAGAAACACT,0.0,,",
-                "chrF,1002,1002,T,-TTA,DEL,0,0,0,AAACCCAAGAAACCAT,0.0,,",
-                "chrF,1002,1002,T,-TTA,DEL,1,1,0,AAACCCAAGAAACCCA,0.0,0.00019999000000000004,MUT",
-                "chrF,1301,1301,A,+GTC,INS,0,0,0,AAACCCAAGAAACACT,0.0,,",
-                "chrF,1301,1301,A,+GTC,INS,0,0,0,AAACCCAAGAAACCCA,0.0,,",
-                "chrF,1301,1301,A,+GTC,INS,1,1,0,AAACCCAAGAAACCAT,0.0,0.00019999000000000004,MUT",
-                "chrF,1602,1602,T,-T,HP,0,0,0,AAACCCAAGAAACACT,0.0,,",
-                "chrF,1602,1602,T,-T,HP,0,0,0,AAACCCAAGAAACCCA,0.0,,",
-                "chrF,1602,1602,T,-T,HP,1,1,0,AAACCCAAGAAACCAT,0.0,0.00019999000000000004,MUT",
-                "chrF,301,301,A,G,SNV1,0,0,0,AAACCCAAGAAACCAT,0.0,,",
-                "chrF,301,301,A,G,SNV1,0,0,0,AAACCCAAGAAACCCA,0.0,,",
-                "chrF,301,301,A,G,SNV1,2,3,0,AAACCCAAGAAACACT,0.0,9.998500060000004e-12,MUT",
-                "chrF,701,701,A,G,SNV2,0,0,0,AAACCCAAGAAACACT,0.0,,",
-                "chrF,701,701,A,G,SNV2,0,0,0,AAACCCAAGAAACCCA,0.0,,",
-                "chrF,701,701,A,G,SNV2,1,2,0,AAACCCAAGAAACCAT,0.0,2.9998e-08,MUT"
+                "chrF:1002:T>-TTA,DEL,INDEL,0,0,0,0.0,,",
+                "chrF:1002:T>-TTA,DEL,INDEL,0,0,0,0.0,,",
+                "chrF:1002:T>-TTA,DEL,INDEL,1,2,0,0.0,2.9998e-08,MUT",
+                "chrF:1301:A>+GTC,INS,INDEL,0,0,0,0.0,,",
+                "chrF:1301:A>+GTC,INS,INDEL,0,0,0,0.0,,",
+                "chrF:1301:A>+GTC,INS,INDEL,1,1,0,0.0,0.00019999000000000004,MUT",
+                "chrF:1602:T>-T,HP,INDEL,0,0,0,0.0,,",
+                "chrF:1602:T>-T,HP,INDEL,0,0,0,0.0,,",
+                "chrF:1602:T>-T,HP,INDEL,1,1,0,0.0,0.00019999000000000004,MUT",
+                "chrF:301:A>G,SNV1,SNV,0,0,0,0.0,,",
+                "chrF:301:A>G,SNV1,SNV,0,0,0,0.0,,",
+                "chrF:301:A>G,SNV1,SNV,2,3,0,0.0,9.998500060000004e-12,MUT",
+                "chrF:701:A>G,SNV2,SNV,0,0,0,0.0,,",
+                "chrF:701:A>G,SNV2,SNV,0,0,0,0.0,,",
+                "chrF:701:A>G,SNV2,SNV,1,2,0,0.0,2.9998e-08,MUT"
             ],
             [
-                "On target: 67",
-                "Total: 67",
+                "On target: 71",
+                "Total: 71",
                 "chrF\t301\t301\tA\tG\tSNV1\t27",
-                "chrF\t701\t701\tA\tG\tSNV2\t10",
+                "chrF\t701\t701\tA\tG\tSNV2\t14",
                 "chrF\t1002\t1002\tT\t-TTA\tDEL\t14",
                 "chrF\t1301\t1301\tA\t+GTC\tINS\t8",
                 "chrF\t1602\t1602\tT\t-T\tHP\t8"
@@ -48,6 +44,6 @@
             "nf-test": "0.9.2",
             "nextflow": "25.04.4"
         },
-        "timestamp": "2026-10-12T15:07:21.465282"
+        "timestamp": "2026-10-12T17:37:52.643571"
     }
 }

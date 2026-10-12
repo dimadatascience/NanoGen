@@ -28,10 +28,10 @@ def _parse_args():
     )
     parser.add_argument(
         "-b",
-        "--baseline_error",
+        "--error_floor",
         type=float,
         default=1e-4,
-        help="Baseline error accounting for any form of errors. For instance contamination.",
+        help="Error floor (epsilon): lower bound on the per-target error rate.",
     )
 
     args = parser.parse_args()
@@ -61,7 +61,7 @@ def main():
     mut = barcodes["MUT"].values
     wt = barcodes["WT"].values
     experimental_error = barcodes["err"].values
-    experimental_error = np.maximum(experimental_error, args.baseline_error)
+    experimental_error = np.maximum(experimental_error, args.error_floor)
 
     p = nbinom.cdf(k=wt, n=mut, p=experimental_error)
     barcodes["p"] = p

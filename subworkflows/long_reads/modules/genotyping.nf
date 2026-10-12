@@ -20,7 +20,7 @@ process GENOTYPING {
  
     script:
     """
-    python ${baseDir}/bin/long_reads/genotyping.py --input ${counts} --output ${sample}.csv --baseline_error ${params.baseline_error}
+    python ${baseDir}/bin/long_reads/genotyping.py --input ${counts} --output ${sample}.csv --error_floor ${params.error_floor}
     """
 
     stub:

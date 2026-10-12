@@ -1,15 +1,15 @@
 {
     "$schema": "http://json-schema.org/draft-07/schema",
-    "$id": "https://raw.githubusercontent.com/nf-core/variantalker/master/nextflow_schema.json",
-    "title": "variantalker pipeline parameters",
-    "description": "variantalker enables users to annotate variants starting from VCF files",
+    "$id": "https://raw.githubusercontent.com/dimadatascience/NanoGen/main/nextflow_schema.json",
+    "title": "NanoGen pipeline parameters",
+    "description": "Per-cell genotyping of targeted mutations from SCM-seq (10x scRNA-seq with targeted enrichment, Oxford Nanopore reads).",
     "type": "object",
     "definitions": {
         "input_output_options": {
             "title": "Input/output options",
             "type": "object",
             "fa_icon": "fas fa-terminal",
-            "description": "Define where the pipeline should find input data and save output data.",
+            "description": "Where the pipeline finds input data and saves output data.",
             "required": [
                 "input",
                 "outdir"
@@ -20,78 +20,147 @@
                     "format": "file-path",
                     "mimetype": "text/csv",
                     "pattern": "^\\S+\\.csv$",
-                    "schema": "assets/schema_input.json",
-                    "description": "Path to comma-separated file containing information about the samples in the experiment.",
-                    "help_text": "You will need to create a design file with information about the samples in your experiment before running the pipeline. Use this parameter to specify its location. It has to be a comma-separated file with 3 columns, and a header row.",
+                    "description": "Samplesheet CSV with columns sample, lane and fastq.",
+                    "help_text": "One row per sample and lane, with a header row `sample,lane,fastq`. Fastq paths must be absolute. Not a spec symbol.",
                     "fa_icon": "fas fa-file-csv"
                 },
                 "outdir": {
                     "type": "string",
                     "format": "directory-path",
-                    "description": "The output directory where the results will be saved. You have to use absolute paths to storage on Cloud infrastructure.",
+                    "default": "results",
+                    "description": "Directory where results are saved.",
+                    "help_text": "Results are written under `<outdir>/<sample>/`. Use absolute paths on cloud storage. Not a spec symbol.",
                     "fa_icon": "fas fa-folder-open"
                 }
             }
         },
-        "reference_genome_options": {
-            "title": "Reference genome options",
+        "reference_options": {
+            "title": "Reference options",
             "type": "object",
             "fa_icon": "fas fa-dna",
-            "description": "Reference genome related files and options required for the workflow.",
+            "description": "Reference genome, its minimap2 index and the target file.",
             "required": [
                 "minimap2_input_genome",
-                "minimap2_mindex"
+                "minimap2_mindex",
+                "bedfile"
             ],
             "properties": {
                 "minimap2_input_genome": {
                     "type": "string",
                     "format": "file-path",
-                    "mimetype": "text/plain",
                     "pattern": "^\\S+\\.fn?a(sta)?(\\.gz)?$",
-                    "description": "Path to FASTA genome file.",
+                    "description": "Reference genome FASTA.",
+                    "help_text": "Used by minimap2 and by bam-readcount for the reference allele. Not a spec symbol.",
                     "fa_icon": "far fa-file-code"
                 },
                 "minimap2_mindex": {
-                   "type": "string",
+                    "type": "string",
                     "format": "file-path",
-                    "mimetype": "text/plain",
-                    "description": "Path to minimap2 index",
+                    "description": "minimap2 index of the reference genome.",
+                    "help_text": "A `.mmi` index built from `minimap2_input_genome`. Not a spec symbol.",
                     "fa_icon": "far fa-file-code"
+                },
+                "bedfile": {
+                    "type": "string",
+                    "format": "file-path",
+                    "description": "Tab-separated target file: chr, start, end, ref, alt, gene.",
+                    "help_text": "One row per targeted mutation. Start and end are equal for SNVs. Not a spec symbol.",
+                    "fa_icon": "far fa-file-alt"
                 }
             }
         },
-        "max_job_request_options": {
-            "title": "Max job request options",
+        "umi_grouping_options": {
+            "title": "UMI grouping",
             "type": "object",
-            "fa_icon": "fab fa-acquisitions-incorporated",
-            "description": "Set the top limit for requested resources for any single job.",
-            "help_text": "If you are running on a smaller system, a pipeline step requesting more resources than are available may cause the Nextflow to stop the run with an error. These options allow you to cap the maximum resources requested by any single job so that the pipeline will run on your system.\n\nNote that you can not _increase_ the resources requested by any job using these options. For that you will need your own configuration file. See [the nf-core website](https://nf-co.re/usage/configuration) for details.",
+            "fa_icon": "fas fa-object-group",
+            "description": "Which reads enter UMI grouping.",
             "properties": {
-                "max_cpus": {
+                "min_mapping_quality": {
                     "type": "integer",
-                    "description": "Maximum number of CPUs that can be requested for any single job.",
-                    "default": 8,
-                    "fa_icon": "fas fa-microchip",
-                    "hidden": true,
-                    "help_text": "Use to set an upper-limit for the CPU requirement for each process. Should be an integer e.g. `--max_cpus 1`"
+                    "default": 20,
+                    "minimum": 0,
+                    "maximum": 255,
+                    "description": "Minimum mapping quality for a read to enter UMI grouping.",
+                    "help_text": "Reads with MAPQ below this value are dropped before UMIs are grouped. Not a spec symbol: the spec assumes reads are confidently aligned. Units: Phred-scaled MAPQ.",
+                    "fa_icon": "fas fa-filter"
+                }
+            }
+        },
+        "consensus_options": {
+            "title": "Consensus",
+            "type": "object",
+            "fa_icon": "fas fa-layer-group",
+            "description": "How each UMI cluster gets a consensus label (WT, MUT or OTH).",
+            "help_text": "A label X is assigned iff count_X >= n_min usable reads and count_X / (r + a + o) >= f_min.",
+            "properties": {
+                "min_reads": {
+                    "type": "integer",
+                    "default": 2,
+                    "minimum": 1,
+                    "description": "Minimum usable reads supporting an allele to label a UMI cluster.",
+                    "help_text": "Spec symbol n_min. A UMI cluster gets a consensus label only if the winning allele has at least n_min usable reads. Units: reads.",
+                    "fa_icon": "fas fa-sort-numeric-up"
                 },
-                "max_memory": {
-                    "type": "string",
-                    "description": "Maximum amount of memory that can be requested for any single job.",
-                    "default": "10.GB",
-                    "fa_icon": "fas fa-memory",
-                    "pattern": "^\\d+(\\.\\d+)?\\.?\\s*(K|M|G|T)?B$",
-                    "hidden": true,
-                    "help_text": "Use to set an upper-limit for the memory requirement for each process. Should be a string in the format integer-unit e.g. `--max_memory '8.GB'`"
+                "min_fraction": {
+                    "type": "number",
+                    "default": 0.6,
+                    "exclusiveMinimum": 0.5,
+                    "maximum": 1,
+                    "description": "Minimum fraction of usable reads supporting an allele to label a UMI cluster.",
+                    "help_text": "Spec symbol f_min. The winning allele needs a fraction of at least f_min of r + a + o. Must be above 0.5 so that at most one allele qualifies. Units: fraction of reads, in (0.5, 1].",
+                    "fa_icon": "fas fa-percentage"
                 },
-                "max_time": {
-                    "type": "string",
-                    "description": "Maximum amount of time that can be requested for any single job.",
-                    "default": "48.h",
-                    "fa_icon": "far fa-clock",
-                    "pattern": "^(\\d+\\.?\\s*(s|m|h|day)\\s*)+$",
+                "snv_min_base_quality": {
+                    "type": "integer",
+                    "default": 20,
+                    "minimum": 0,
+                    "maximum": 93,
+                    "description": "Minimum base quality for a read to count as usable at an SNV target.",
+                    "help_text": "Spec: the SNV base-quality threshold that defines a usable read (no symbol; 20 in the spec). Passed to bam-readcount `-b`. Units: Phred.",
+                    "fa_icon": "fas fa-filter"
+                }
+            }
+        },
+        "genotyping_options": {
+            "title": "Genotyping",
+            "type": "object",
+            "fa_icon": "fas fa-dna",
+            "description": "How each cell × target is called MUT, WT or NA from its consensus labels.",
+            "properties": {
+                "error_floor": {
+                    "type": "number",
+                    "default": 0.0001,
+                    "exclusiveMinimum": 0,
+                    "exclusiveMaximum": 1,
+                    "description": "Lower bound on the per-target error rate used by the caller.",
+                    "help_text": "Spec symbol ε (epsilon): P_s = max(q_hat, ε), so a target with no observed error is not modelled as error-free. Units: probability, in (0, 1).",
+                    "fa_icon": "fas fa-level-down-alt"
+                }
+            }
+        },
+        "blaze_options": {
+            "title": "BLAZE",
+            "type": "object",
+            "fa_icon": "fas fa-barcode",
+            "description": "Cell-barcode identification and demultiplexing with BLAZE.",
+            "properties": {
+                "blaze_expect_cells": {
+                    "type": "integer",
+                    "default": 5000,
+                    "minimum": 1,
                     "hidden": true,
-                    "help_text": "Use to set an upper-limit for the time requirement for each process. Should be a string in the format integer-unit e.g. `--max_time '2.h'`"
+                    "description": "Expected number of cells, passed to BLAZE `--expect-cells`.",
+                    "help_text": "BLAZE uses it to pick the cell-barcode whitelist from the barcode rank (knee) plot. Not a spec symbol. Units: cells.",
+                    "fa_icon": "fas fa-users"
+                },
+                "blaze_edit_distance": {
+                    "type": "integer",
+                    "default": 1,
+                    "minimum": 0,
+                    "hidden": true,
+                    "description": "Maximum edit distance for BLAZE to assign a read's cell barcode to a whitelisted one.",
+                    "help_text": "Passed to BLAZE `--max-edit-distance`. It corrects cell barcodes (CB), not UMIs. Not a spec symbol. Units: edits.",
+                    "fa_icon": "fas fa-ruler"
                 }
             }
         },
@@ -100,22 +169,20 @@
             "type": "object",
             "fa_icon": "fas fa-file-import",
             "description": "Less common options for the pipeline, typically set in a config file.",
-            "help_text": "These options are common to all nf-core pipelines and allow you to customise some of the core preferences for how the pipeline runs.\n\nTypically these options would be set in a Nextflow config file loaded for all pipeline runs, such as `~/.nextflow/config`.",
-            "required": [
-                "annovar_software_folder"
-            ],
             "properties": {
                 "help": {
                     "type": "boolean",
                     "description": "Display help text.",
                     "fa_icon": "fas fa-question-circle",
-                    "hidden": true
+                    "hidden": true,
+                    "default": false
                 },
                 "version": {
                     "type": "boolean",
                     "description": "Display version and exit.",
                     "fa_icon": "fas fa-question-circle",
-                    "hidden": true
+                    "hidden": true,
+                    "default": false
                 },
                 "container": {
                     "type": "string",
@@ -161,21 +228,15 @@
                     "type": "boolean",
                     "description": "Send plain-text email instead of HTML.",
                     "fa_icon": "fas fa-remove-format",
-                    "hidden": true
-                },
-                "max_multiqc_email_size": {
-                    "type": "string",
-                    "description": "File size limit when attaching MultiQC reports to summary emails.",
-                    "pattern": "^\\d+(\\.\\d+)?\\.?\\s*(K|M|G|T)?B$",
-                    "default": "25.MB",
-                    "fa_icon": "fas fa-file-upload",
-                    "hidden": true
+                    "hidden": true,
+                    "default": false
                 },
                 "monochrome_logs": {
                     "type": "boolean",
                     "description": "Do not use coloured log outputs.",
                     "fa_icon": "fas fa-palette",
-                    "hidden": true
+                    "hidden": true,
+                    "default": false
                 },
                 "hook_url": {
                     "type": "string",
@@ -184,28 +245,9 @@
                     "help_text": "Incoming hook URL for messaging service. Currently, MS Teams and Slack are supported.",
                     "hidden": true
                 },
-                "multiqc_config": {
-                    "type": "string",
-                    "description": "Custom config file to supply to MultiQC.",
-                    "fa_icon": "fas fa-cog",
-                    "hidden": true
-                },
-                "multiqc_logo": {
-                    "type": "string",
-                    "description": "Custom logo file to supply to MultiQC. File name must also be set in the MultiQC config file",
-                    "fa_icon": "fas fa-image",
-                    "hidden": true
-                },
-                "tracedir": {
-                    "type": "string",
-                    "description": "Directory to keep pipeline Nextflow logs and reports.",
-                    "default": "${params.outdir}/pipeline_info",
-                    "fa_icon": "fas fa-cogs",
-                    "hidden": true
-                },
                 "validate_params": {
                     "type": "boolean",
-                    "description": "Boolean whether to validate parameters against the schema at runtime",
+                    "description": "Validate parameters against the schema before the run starts.",
                     "default": true,
                     "fa_icon": "fas fa-check-square",
                     "hidden": true
@@ -215,90 +257,15 @@
                     "fa_icon": "far fa-eye-slash",
                     "description": "Show all params when using `--help`",
                     "hidden": true,
-                    "help_text": "By default, parameters set as _hidden_ in the schema are not shown on the command line when a user runs with `--help`. Specifying this option will tell the pipeline to show all parameters."
+                    "help_text": "By default, parameters set as _hidden_ in the schema are not shown on the command line when a user runs with `--help`. Specifying this option will tell the pipeline to show all parameters.",
+                    "default": false
+                },
+                "schema_ignore_params": {
+                    "type": "string",
+                    "description": "Comma-separated parameter names to leave out of schema validation.",
+                    "fa_icon": "fas fa-filter",
+                    "hidden": true
                 }
-            }
-        },
-        "filtering_options": {
-            "title": "Read and UMI filtering options",
-            "type": "object",
-            "fa_icon": "fa-file-import",
-            "description": "Set the options for reads and UMI filtering",
-            "help_text": "If you want to change stringency (confidence in genotyping), change these parameters.",
-            "properties": {
-                "window_width": {
-                    "type": "integer",
-                    "description": "Reads within these window with the same final UMI barcode from umi_tools are collapsed in the same group.",
-                    "default": 100,
-                    "fa_icon": "fas fa-ww",
-                    "hidden": true,
-                    "help_text": "Use to set the window for grouping UMIs with different position."
-                },
-                "min_dist_umi_collapsing": {
-                    "type": "integer",
-                    "description": "Reads within this distance are collapsed in the same group.",
-                    "default": 1,
-                    "fa_icon": "fas fa-mindist-umi",
-                    "hidden": true,
-                    "help_text": "Use to set the umi hamming distance for collapsing UMIs in the same group."
-                },
-                "min_base_quality": {
-                    "type": "integer",
-                    "description": "Minimum base quality to keep the read for building consensus read.",
-                    "default": 20,
-                    "fa_icon": "fas fa-minbquality-read",
-                    "hidden": true,
-                    "help_text": "Use this to change the minimum quality of the read included in consensus pipeline."
-                },
-                "min_fraction": {
-                    "type": "number",
-                    "description": "The minimum fraction of reads supporting a base to keep the consensus.",
-                    "default": 0.75,
-                    "fa_icon": "fas fa-minfraction-read",
-                    "hidden": true,
-                    "help_text": "Use this to change the fraction of reads supporting the consensus. Smaller number for less stringency."
-                },
-                "min_mapping_quality": {
-                    "type": "integer",
-                    "description": "Minimum mapping quality to keep the read for building consensus read.",
-                    "default": 20,
-                    "fa_icon": "fas fa-minmquality-read",
-                    "hidden": true,
-                    "help_text": "Use this to change the fraction of reads supporting the consensus. Smaller number for less stringency."
-                },
-                "min_reads": {
-                    "type": "integer",
-                    "description": "The minimum number of reads supporting an UMI to call consensus on the UMI.",
-                    "default": 2,
-                    "fa_icon": "fas fa-minread",
-                    "hidden": true,
-                    "help_text": "Use this to change the number of reads supporting the UMI to call consensus."
-                },
-                "blaze_expect_cells": {
-                    "type": "integer",
-                    "description": "Expected number of cells",
-                    "default": 5000,
-                    "fa_icon": "fas fa-blaze-cell",
-                    "hidden": true,
-                    "help_text": "Use this to change the expected number of cells."
-                },
-                "blaze_edit_distance": {
-                    "type": "integer",
-                    "description": "Distance used to collapse UMIs within the same group.",
-                    "default": 1,
-                    "fa_icon": "fas fa-blaze-dist",
-                    "hidden": true,
-                    "help_text": "Use this to change the distance to collapse UMI within the same group."
-                },
-                "baseline_error": {
-                    "type": "number",
-                    "description": "Baseline error",
-                    "default": 0.0001,
-                    "fa_icon": "fas fa-baseerror-dist",
-                    "hidden": true,
-                    "help_text": "Baseline error modelling implicitally all sources of error not accounted for."
-                }
-
             }
         }
     },
@@ -307,19 +274,22 @@
             "$ref": "#/definitions/input_output_options"
         },
         {
-            "$ref": "#/definitions/reference_genome_options"
+            "$ref": "#/definitions/reference_options"
         },
         {
-            "$ref": "#/definitions/institutional_config_options"
+            "$ref": "#/definitions/umi_grouping_options"
         },
         {
-            "$ref": "#/definitions/max_job_request_options"
+            "$ref": "#/definitions/consensus_options"
+        },
+        {
+            "$ref": "#/definitions/genotyping_options"
+        },
+        {
+            "$ref": "#/definitions/blaze_options"
         },
         {
             "$ref": "#/definitions/generic_options"
-        },
-        {
-            "$ref": "#/definitions/filtering_options"
         }
     ]
 }

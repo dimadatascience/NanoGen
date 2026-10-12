@@ -1,0 +1,38 @@
+nextflow_pipeline {
+
+    name "LONG_READS end to end, stub"
+    script "../main.nf"
+    options "-stub -entry LONG_READS"
+
+    test("samplesheet to genotype outputs") {
+
+        when {
+            params {
+                // Fastq paths in a samplesheet must be absolute, so write it per run
+                def samplesheet = new File("${outputDir}/samplesheet.csv")
+                samplesheet.parentFile.mkdirs()
+                samplesheet.text = [
+                    "sample,lane,fastq",
+                    "S1,L1,${baseDir}/tests/data/S1_L1.fastq",
+                    "S1,L2,${baseDir}/tests/data/S1_L2.fastq",
+                ].join("\n") + "\n"
+
+                input  = samplesheet.toString()
+                outdir = "${outputDir}/results"
+            }
+        }
+
+        then {
+            assert workflow.success
+            // BLAZE x2 lanes, MERGE_READS, MINIMAP2, FIXTAGS, SPLIT_BAM,
+            // CONSENSUS x3 cells, COLLAPSE, GENOTYPING
+            assert workflow.trace.succeeded().size() == 11
+            assert path("${outputDir}/results/S1/S1.csv").exists()
+            assert path("${outputDir}/results/S1/logs/genotype.log").exists()
+            assert path("${outputDir}/results/S1/logs/blaze.log").exists()
+            assert path("${outputDir}/results/S1/logs/target.log").exists()
+        }
+
+    }
+
+}

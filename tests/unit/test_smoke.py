@@ -11,4 +11,4 @@ def test_consensus_on_umi_labels_a_ref_cluster_wt():
         line, ref="A", alt="C", min_fraction=0.6, min_consensus=2
     )
 
-    assert counts == {"WT": 1, "MUT": 0, "MIS": 0}
+    assert counts == {"WT": 1, "MUT": 0, "OTH": 0}

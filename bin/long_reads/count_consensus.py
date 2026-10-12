@@ -129,9 +129,9 @@ def label_cluster(entries, ref, alt, min_fraction=0.75, min_consensus=3):
                                        to consider it for consensus. Defaults to 3.
 
     Returns:
-        str or None: 'WT', 'MUT' or 'MIS' (OTH), or None if the cluster gets no label.
+        str or None: 'WT', 'MUT' or 'OTH', or None if the cluster gets no label.
     """
-    counts = {ref: 0, alt: 0, "mis": 0}
+    counts = {ref: 0, alt: 0, "oth": 0}
     for base, read_count in entries:
         if base == ref:
             counts[ref] = read_count
@@ -140,7 +140,7 @@ def label_cluster(entries, ref, alt, min_fraction=0.75, min_consensus=3):
         elif len(alt) > 2 and len(base) > 2 and (base in alt or alt in base):
             counts[alt] = np.maximum(read_count, counts[alt])
         elif base != "N":
-            counts["mis"] += read_count
+            counts["oth"] += read_count
 
     maximum = np.max([counts[ref], counts[alt]])
     count_values = np.array(list(counts.values()))
@@ -158,7 +158,7 @@ def label_cluster(entries, ref, alt, min_fraction=0.75, min_consensus=3):
         elif key == alt:
             return "MUT"
         else:
-            return "MIS"
+            return "OTH"
     return None
 
 
@@ -179,7 +179,7 @@ def consensus_on_umi(line, ref, alt, min_fraction=0.75, min_consensus=3):
 
     Returns:
         Dict: A dictionary containing counts of consensus results for each data
-                       block, divided by consensus types ('WT', 'MUT', 'MIS').
+                       block, divided by consensus types ('WT', 'MUT', 'OTH').
     """
     return tally_clusters(parse_clusters(line), ref, alt, min_fraction, min_consensus)
 
@@ -189,9 +189,9 @@ def tally_clusters(clusters, ref, alt, min_fraction=0.75, min_consensus=3):
     Count the consensus labels of parsed clusters (see parse_clusters).
 
     Returns:
-        Dict: Counts of 'WT', 'MUT' and 'MIS' labels over the clusters.
+        Dict: Counts of 'WT', 'MUT' and 'OTH' labels over the clusters.
     """
-    consensus_counts = {"WT": 0, "MUT": 0, "MIS": 0}
+    consensus_counts = {"WT": 0, "MUT": 0, "OTH": 0}
     for entries in clusters:
         label = label_cluster(entries, ref, alt, min_fraction, min_consensus)
         if label is not None:
@@ -210,10 +210,10 @@ def count_targets(target, lines, min_fraction=0.75, min_consensus=3):
         min_consensus (int, optional): See label_cluster. Defaults to 3.
 
     Returns:
-        pd.DataFrame: A copy of target with 'WT', 'MUT' and 'MIS' consensus counts.
+        pd.DataFrame: A copy of target with 'WT', 'MUT' and 'OTH' consensus counts.
     """
     target = target.copy()
-    target[["WT", "MUT", "MIS"]] = 0
+    target[["WT", "MUT", "OTH"]] = 0
 
     for line in lines:
         chrom, start_pos, ref, clusters = parse_readcount_line(line)
@@ -225,7 +225,7 @@ def count_targets(target, lines, min_fraction=0.75, min_consensus=3):
         for alt in alts:
             counts = tally_clusters(clusters, ref, alt, min_fraction, min_consensus)
             # Rows are matched on chr, start and alt only, as on main
-            for val in ["WT", "MUT", "MIS"]:
+            for val in ["WT", "MUT", "OTH"]:
                 target.loc[
                     (target["chr"] == chrom)
                     & (target["start"] == start_pos)

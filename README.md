@@ -55,7 +55,20 @@ params.outdir
 
 ```
 
-- sample.csv contains the genotyping results for the targeted region. This CSV file includes the cell ID, the assigned genotype, the probability score of the genotype call, and the number of UMIs supporting the WT allele, the MUT allele, and unclassified reads.
+- sample.csv contains the genotyping results for the targeted region, one row per cell × target, written without an index column:
+
+| Column | Meaning |
+| ------ | ------- |
+| `cell` | Cell barcode |
+| `target_id` | Target as `chr:start:ref>alt`: the 1-based bam-readcount position, with `ref` and `alt` as written in the BED (e.g. `chr4:54733160:GAT>-GAT`) |
+| `gene` | Gene name from the BED |
+| `type` | `SNV`, or `INDEL` for a `+`/`-` alt |
+| `WT` | Number of UMIs with consensus label WT |
+| `MUT` | Number of UMIs with consensus label MUT |
+| `OTH` | Number of UMIs with consensus label OTH (third allele) |
+| `err` | Experimental error rate used for the call |
+| `p` | Negative binomial probability of the WT UMIs given the MUT UMIs under the null hypothesis that the cell is WT |
+| `genotype` | Call: `MUT`, `WT`, or empty (NA) when undetermined |
 
 - blaze.log: contains the statistics of the experiments, e.g. number of reads, high quality reads, number of cells and reads in polyT
 

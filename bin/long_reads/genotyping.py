@@ -16,7 +16,7 @@ def _parse_args():
         type=str,
         default=None,
         required=True,
-        help="File containing consensus counts for each gene in the panel. Required columns: [MUT, WT, MIS, barcode]",
+        help="File containing consensus counts for each gene in the panel. Required columns: [chr, start, ref, alt, gene, WT, MUT, OTH, barcode]",
     )
     parser.add_argument(
         "-o",
@@ -39,21 +39,21 @@ def _parse_args():
 
 def estimate_cell_error(barcodes):
     """
-    Estimate the error rate of each cell from its MIS consensus counts.
+    Estimate the error rate of each cell from its OTH consensus counts.
 
     Parameters:
-        barcodes (pd.DataFrame): Consensus counts with columns [MUT, WT, MIS, cell].
+        barcodes (pd.DataFrame): Consensus counts with columns [MUT, WT, OTH, cell].
 
     Returns:
-        pd.DataFrame: barcodes with an 'err' column: half the MIS fraction of
+        pd.DataFrame: barcodes with an 'err' column: half the OTH fraction of
                       all the cell's UMIs.
     """
     grouped = barcodes.groupby("cell")
     barcodes = barcodes.merge(
         (
             (
-                grouped["MIS"].sum()
-                / (grouped[["MUT", "WT", "MIS"]].sum().sum(axis=1) + 1e-8)
+                grouped["OTH"].sum()
+                / (grouped[["MUT", "WT", "OTH"]].sum().sum(axis=1) + 1e-8)
                 / 2
             )
             .to_frame("err")
@@ -111,7 +111,7 @@ def call_targets(counts, error_floor=1e-4):
     Make the call of every cell x target.
 
     Parameters:
-        counts (pd.DataFrame): Consensus counts with columns [MUT, WT, MIS, barcode].
+        counts (pd.DataFrame): Consensus counts with columns [MUT, WT, OTH, barcode].
         error_floor (float, optional): Floor for the error rate. Defaults to 1e-4.
 
     Returns:
@@ -130,6 +130,44 @@ def call_targets(counts, error_floor=1e-4):
     return barcodes
 
 
+def target_id(chrom, start, ref, alt):
+    """
+    Identify a target as chr:start:ref>alt.
+
+    start is the 1-based bam-readcount position, and ref and alt are as written
+    in the BED, e.g. chr4:54733160:GAT>-GAT.
+    """
+    return f"{chrom}:{start}:{ref}>{alt}"
+
+
+def variant_type(ref, alt):
+    """
+    Type of a target: 'INDEL' for a bam-readcount indel alt (+ins or -del),
+    'SNV' otherwise.
+    """
+    return "INDEL" if alt.startswith(("+", "-")) else "SNV"
+
+
+OUTPUT_COLUMNS = [
+    "cell", "target_id", "gene", "type", "WT", "MUT", "OTH", "err", "p", "genotype",
+]
+
+
+def output_table(barcodes):
+    """
+    Shape the called table (see call_targets) as <sample>.csv.
+
+    Returns:
+        pd.DataFrame: One row per cell x target with OUTPUT_COLUMNS.
+    """
+    out = barcodes.copy()
+    out["target_id"] = [
+        target_id(*t) for t in out[["chr", "start", "ref", "alt"]].itertuples(index=False)
+    ]
+    out["type"] = [variant_type(r, a) for r, a in zip(out["ref"], out["alt"])]
+    return out[OUTPUT_COLUMNS].reset_index(drop=True)
+
+
 def summarise(barcodes):
     """
     Summarise the called table for genotype.log.
@@ -137,7 +175,7 @@ def summarise(barcodes):
     Returns:
         List[str]: One line per statistic.
     """
-    total_umis = barcodes["WT"] + barcodes["MUT"] + barcodes["MIS"]
+    total_umis = barcodes["WT"] + barcodes["MUT"] + barcodes["OTH"]
     numis = total_umis.groupby(barcodes["cell"]).sum()
     ngenes = total_umis.groupby(barcodes["cell"]).apply(lambda x: np.sum(x > 0))
     ncells = len(barcodes["cell"].unique())
@@ -155,8 +193,8 @@ def main():
 
     args = _parse_args()
 
-    barcodes = call_targets(pd.read_csv(args.input), args.error_floor)
-    barcodes.to_csv(args.output)
+    barcodes = output_table(call_targets(pd.read_csv(args.input), args.error_floor))
+    barcodes.to_csv(args.output, index=False)
 
     # collect statistics
     with open("genotype.log", "w") as f:

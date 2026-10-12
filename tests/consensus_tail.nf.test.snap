@@ -2,7 +2,7 @@
     "synthetic fixture cells": {
         "content": [
             [
-                "chr,start,end,ref,alt,gene,WT,MUT,MIS,barcode",
+                "chr,start,end,ref,alt,gene,WT,MUT,OTH,barcode",
                 "chrF,301,301,A,G,SNV1,2,3,0,AAACCCAAGAAACACT",
                 "chrF,701,701,A,G,SNV2,0,0,0,AAACCCAAGAAACACT",
                 "chrF,1002,1002,T,-TTA,DEL,0,0,0,AAACCCAAGAAACACT",
@@ -20,22 +20,22 @@
                 "chrF,1602,1602,T,-T,HP,0,0,0,AAACCCAAGAAACCCA"
             ],
             [
-                ",chr,start,end,ref,alt,gene,WT,MUT,MIS,cell,err,p,genotype",
-                "0,chrF,301,301,A,G,SNV1,2,3,0,AAACCCAAGAAACACT,0.0,9.998500060000004e-12,MUT",
-                "1,chrF,701,701,A,G,SNV2,0,0,0,AAACCCAAGAAACACT,0.0,,",
-                "2,chrF,1002,1002,T,-TTA,DEL,0,0,0,AAACCCAAGAAACACT,0.0,,",
-                "3,chrF,1301,1301,A,+GTC,INS,0,0,0,AAACCCAAGAAACACT,0.0,,",
-                "4,chrF,1602,1602,T,-T,HP,0,0,0,AAACCCAAGAAACACT,0.0,,",
-                "5,chrF,301,301,A,G,SNV1,0,0,0,AAACCCAAGAAACCAT,0.0,,",
-                "6,chrF,701,701,A,G,SNV2,1,2,0,AAACCCAAGAAACCAT,0.0,2.9998e-08,MUT",
-                "7,chrF,1002,1002,T,-TTA,DEL,0,0,0,AAACCCAAGAAACCAT,0.0,,",
-                "8,chrF,1301,1301,A,+GTC,INS,1,1,0,AAACCCAAGAAACCAT,0.0,0.00019999000000000004,MUT",
-                "9,chrF,1602,1602,T,-T,HP,1,1,0,AAACCCAAGAAACCAT,0.0,0.00019999000000000004,MUT",
-                "10,chrF,301,301,A,G,SNV1,0,0,0,AAACCCAAGAAACCCA,0.0,,",
-                "11,chrF,701,701,A,G,SNV2,0,0,0,AAACCCAAGAAACCCA,0.0,,",
-                "12,chrF,1002,1002,T,-TTA,DEL,1,1,0,AAACCCAAGAAACCCA,0.0,0.00019999000000000004,MUT",
-                "13,chrF,1301,1301,A,+GTC,INS,0,0,0,AAACCCAAGAAACCCA,0.0,,",
-                "14,chrF,1602,1602,T,-T,HP,0,0,0,AAACCCAAGAAACCCA,0.0,,"
+                "cell,target_id,gene,type,WT,MUT,OTH,err,p,genotype",
+                "AAACCCAAGAAACACT,chrF:301:A>G,SNV1,SNV,2,3,0,0.0,9.998500060000004e-12,MUT",
+                "AAACCCAAGAAACACT,chrF:701:A>G,SNV2,SNV,0,0,0,0.0,,",
+                "AAACCCAAGAAACACT,chrF:1002:T>-TTA,DEL,INDEL,0,0,0,0.0,,",
+                "AAACCCAAGAAACACT,chrF:1301:A>+GTC,INS,INDEL,0,0,0,0.0,,",
+                "AAACCCAAGAAACACT,chrF:1602:T>-T,HP,INDEL,0,0,0,0.0,,",
+                "AAACCCAAGAAACCAT,chrF:301:A>G,SNV1,SNV,0,0,0,0.0,,",
+                "AAACCCAAGAAACCAT,chrF:701:A>G,SNV2,SNV,1,2,0,0.0,2.9998e-08,MUT",
+                "AAACCCAAGAAACCAT,chrF:1002:T>-TTA,DEL,INDEL,0,0,0,0.0,,",
+                "AAACCCAAGAAACCAT,chrF:1301:A>+GTC,INS,INDEL,1,1,0,0.0,0.00019999000000000004,MUT",
+                "AAACCCAAGAAACCAT,chrF:1602:T>-T,HP,INDEL,1,1,0,0.0,0.00019999000000000004,MUT",
+                "AAACCCAAGAAACCCA,chrF:301:A>G,SNV1,SNV,0,0,0,0.0,,",
+                "AAACCCAAGAAACCCA,chrF:701:A>G,SNV2,SNV,0,0,0,0.0,,",
+                "AAACCCAAGAAACCCA,chrF:1002:T>-TTA,DEL,INDEL,1,1,0,0.0,0.00019999000000000004,MUT",
+                "AAACCCAAGAAACCCA,chrF:1301:A>+GTC,INS,INDEL,0,0,0,0.0,,",
+                "AAACCCAAGAAACCCA,chrF:1602:T>-T,HP,INDEL,0,0,0,0.0,,"
             ],
             [
                 "Total number of cells: 3",

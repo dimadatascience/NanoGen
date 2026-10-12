@@ -102,7 +102,7 @@ def test_snv_other_bases_are_pooled_in_the_fraction():
     assert label("A", "C", ("A", 3), ("G", 2), ("T", 2)) is None
 
 
-def test_snv_oth_majority_is_never_labelled_mis():
+def test_snv_oth_majority_is_never_labelled_oth():
     # The count tested is max(ref, alt), so an OTH-dominated cluster is dropped
     assert label("A", "C", ("A", 0), ("G", 9)) is None
 
@@ -183,7 +183,7 @@ def test_consensus_on_umi_tallies_labels_over_clusters():
         block(("A", 1)),  # below min_consensus: not counted
     )
 
-    assert cc.consensus_on_umi(text, "A", "C", 0.6, 2) == {"WT": 1, "MUT": 2, "MIS": 0}
+    assert cc.consensus_on_umi(text, "A", "C", 0.6, 2) == {"WT": 1, "MUT": 2, "OTH": 0}
 
 
 # Per-cell target counting
@@ -210,9 +210,9 @@ def test_count_targets_scores_every_alt_at_a_covered_site():
     table = cc.count_targets(targets(), lines, min_fraction=0.6, min_consensus=2)
 
     assert table.columns.tolist() == [
-        "chr", "start", "end", "ref", "alt", "gene", "WT", "MUT", "MIS",
+        "chr", "start", "end", "ref", "alt", "gene", "WT", "MUT", "OTH",
     ]
-    assert table[["WT", "MUT", "MIS"]].values.tolist() == [
+    assert table[["WT", "MUT", "OTH"]].values.tolist() == [
         # alt C: the T cluster is OTH at 4/4 but has max(ref, alt) = 0
         [1, 1, 0],
         [1, 1, 0],
@@ -226,7 +226,7 @@ def test_count_targets_skips_lines_whose_ref_does_not_match():
 
     table = cc.count_targets(targets(), lines, min_fraction=0.6, min_consensus=2)
 
-    assert table[["WT", "MUT", "MIS"]].values.sum() == 0
+    assert table[["WT", "MUT", "OTH"]].values.sum() == 0
 
 
 def test_count_targets_does_not_mutate_its_input():

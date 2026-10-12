@@ -217,7 +217,7 @@ def test_snv_lowq_alt_bases_have_low_quality():
     assert {_site_base(r, pos)[0] for r in reads} == {alt}
     assert all(_site_base(r, pos)[1] < 20 for r in reads)
     # Alone at SNV2 in its cell, so the SNV base-quality filter leaves it no reads
-    assert {r.get_tag("CB") for r in _scenario("snv_lowq")}.isdisjoint(
+    assert {r.get_tag("CB") for r in reads}.isdisjoint(
         {r.get_tag("CB") for r in _scenario("straddle") + _scenario("wt")
          if _site_base(r, pos)})
 

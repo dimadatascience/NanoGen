@@ -216,7 +216,8 @@ def count_targets(target, lines, min_fraction=0.75, min_consensus=3):
     target[["WT", "MUT", "OTH"]] = 0
 
     # A site with both an SNV and an indel target has one line per bam-readcount
-    # pass, the SNV pass first: SNV alts are scored on the first, indel alts on the last
+    # pass, the SNV pass first: SNV alts are scored on the first, indel alts on the last.
+    # bam-readcount writes a covered site even when -b filters every base.
     scored_snvs = set()
     for line in lines:
         chrom, start_pos, ref, clusters = parse_readcount_line(line)

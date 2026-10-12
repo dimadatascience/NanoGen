@@ -1,7 +1,6 @@
 #!/usr/bin/python
 
 import argparse
-import sys
 
 import numpy as np
 import pandas as pd
@@ -38,11 +37,17 @@ def _parse_args():
     return args
 
 
-def main():
+def estimate_cell_error(barcodes):
+    """
+    Estimate the error rate of each cell from its MIS consensus counts.
 
-    args = _parse_args()
+    Parameters:
+        barcodes (pd.DataFrame): Consensus counts with columns [MUT, WT, MIS, cell].
 
-    barcodes = pd.read_csv(args.input).rename(columns={"barcode": "cell"})
+    Returns:
+        pd.DataFrame: barcodes with an 'err' column: half the MIS fraction of
+                      all the cell's UMIs.
+    """
     grouped = barcodes.groupby("cell")
     barcodes = barcodes.merge(
         (
@@ -57,57 +62,106 @@ def main():
         on="cell",
     )
     barcodes.loc[barcodes["err"] == 0, "err"] = barcodes["err"].min()
+    return barcodes
 
-    mut = barcodes["MUT"].values
-    wt = barcodes["WT"].values
-    experimental_error = barcodes["err"].values
-    experimental_error = np.maximum(experimental_error, args.error_floor)
+
+def call(mut, wt, experimental_error, error_floor=1e-4):
+    """
+    Make calls from MUT and WT consensus counts.
+
+    Parameters:
+        mut (np.ndarray): MUT consensus counts.
+        wt (np.ndarray): WT consensus counts.
+        experimental_error (np.ndarray): Error rate of each count pair.
+        error_floor (float, optional): Floor for the error rate. Defaults to 1e-4.
+
+    Returns:
+        Tuple[np.ndarray, np.ndarray]: The negative binomial p of each pair, and
+                                       its call: 'WT', 'MUT' or NaN.
+    """
+    experimental_error = np.maximum(experimental_error, error_floor)
 
     p = nbinom.cdf(k=wt, n=mut, p=experimental_error)
-    barcodes["p"] = p
 
-    genotypes = np.zeros(p.size)
-    genotypes[(wt == 0) & (mut == 0)] = (
+    codes = np.zeros(p.size)
+    codes[(wt == 0) & (mut == 0)] = (
         np.nan
     )  # Real NAs: counts mut==0 and counts wt==0
-    genotypes[p < 0.1] = 1  # MUT: p WT very low (<.1)
-    genotypes[(np.isnan(p)) & (wt >= 2)] = (
+    codes[p < 0.1] = 1  # MUT: p WT very low (<.1)
+    codes[(np.isnan(p)) & (wt >= 2)] = (
         0  # WT: p NA for counts mut == 0 and count wt>=3
     )
-    genotypes[p >= 0.9] = 0  # WT: p WT very high (>=.9)
-    genotypes[(np.isnan(p)) & (wt < 2)] = (
+    codes[p >= 0.9] = 0  # WT: p WT very high (>=.9)
+    codes[(np.isnan(p)) & (wt < 2)] = (
         np.nan
     )  # NAs (impossible to assign): p NA for counts mut == 0 but count wt<3
-    genotypes[(p >= 0.1) & (p < 0.9)] = (
+    codes[(p >= 0.1) & (p < 0.9)] = (
         np.nan
     )  # NAs (impossible to assign): p WT between .1 and .9
 
-    barcodes["genotype"] = np.select(
-        [genotypes == 0, genotypes == 1], ["WT", "MUT"], default="-"
+    calls = np.select(
+        [codes == 0, codes == 1], ["WT", "MUT"], default="-"
+    ).astype(object)
+    calls[calls == "-"] = np.nan
+    return p, calls
+
+
+def call_targets(counts, error_floor=1e-4):
+    """
+    Make the call of every cell x target.
+
+    Parameters:
+        counts (pd.DataFrame): Consensus counts with columns [MUT, WT, MIS, barcode].
+        error_floor (float, optional): Floor for the error rate. Defaults to 1e-4.
+
+    Returns:
+        pd.DataFrame: counts with 'barcode' renamed 'cell', and 'err', 'p' and
+                      'genotype' columns.
+    """
+    barcodes = estimate_cell_error(counts.rename(columns={"barcode": "cell"}))
+    p, calls = call(
+        barcodes["MUT"].values,
+        barcodes["WT"].values,
+        barcodes["err"].values,
+        error_floor,
     )
-    barcodes.loc[barcodes["genotype"] == "-", "genotype"] = np.nan
+    barcodes["p"] = p
+    barcodes["genotype"] = calls
+    return barcodes
+
+
+def summarise(barcodes):
+    """
+    Summarise the called table for genotype.log.
+
+    Returns:
+        List[str]: One line per statistic.
+    """
+    total_umis = barcodes["WT"] + barcodes["MUT"] + barcodes["MIS"]
+    numis = total_umis.groupby(barcodes["cell"]).sum()
+    ngenes = total_umis.groupby(barcodes["cell"]).apply(lambda x: np.sum(x > 0))
+    ncells = len(barcodes["cell"].unique())
+
+    return [
+        f"Total number of cells: {ncells}",
+        f"Total number of UMIs: {np.sum(numis)}",
+        f"Median UMI per cell: {np.median(numis)}",
+        f"Median genes covered per cell: {np.median(ngenes)}",
+        f"Fraction of cells with UMIs: {np.mean(numis>0)}",
+    ]
+
+
+def main():
+
+    args = _parse_args()
+
+    barcodes = call_targets(pd.read_csv(args.input), args.error_floor)
     barcodes.to_csv(args.output)
 
     # collect statistics
-    barcodes["total_umis"] = barcodes["WT"] + barcodes["MUT"] + barcodes["MIS"]
-    numis = barcodes.groupby("cell")["total_umis"].sum()
-    ngenes = barcodes.groupby("cell")["total_umis"].apply(lambda x: np.sum(x > 0))
-    ncells = len(barcodes["cell"].unique())
-
-    # Open a file to write the output
     with open("genotype.log", "w") as f:
-        # Redirect stdout to the file
-        sys.stdout = f
-
-        # Your print statements
-        print(f"Total number of cells: {ncells}")
-        print(f"Total number of UMIs: {np.sum(numis)}")
-        print(f"Median UMI per cell: {np.median(numis)}")
-        print(f"Median genes covered per cell: {np.median(ngenes)}")
-        print(f"Fraction of cells with UMIs: {np.mean(numis>0)}")
-
-        # Restore stdout to its original state
-        sys.stdout = sys.__stdout__
+        for line in summarise(barcodes):
+            print(line, file=f)
 
 
 # Run

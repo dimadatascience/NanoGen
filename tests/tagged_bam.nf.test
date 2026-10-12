@@ -1,0 +1,51 @@
+nextflow_pipeline {
+
+    name "LONG_READS from a tagged BAM"
+    script "../main.nf"
+    options "-entry LONG_READS"
+
+    // The tagged BAM holds the reads of the per-cell fixture BAMs, so SPLIT_BAM
+    // must give back those three cells for the tail to genotype.
+    test("synthetic fixture sample") {
+
+        when {
+            params {
+                def samplesheet = new File("${outputDir}/samplesheet.csv")
+                samplesheet.parentFile.mkdirs()
+                samplesheet.text = [
+                    "sample,bam",
+                    "S1,${baseDir}/tests/fixtures/synthetic/tagged/S1.bam",
+                ].join("\n") + "\n"
+
+                input                 = samplesheet.toString()
+                input_type            = "tagged_bam"
+                outdir                = "${outputDir}/results"
+                bedfile               = "${baseDir}/tests/fixtures/synthetic/targets.bed"
+                // contig.fa.fai is committed alongside, so bam-readcount never writes one
+                minimap2_input_genome = "${baseDir}/tests/fixtures/synthetic/contig.fa"
+                minimap2_mindex       = null
+            }
+        }
+
+        then {
+            assert workflow.success
+            assert workflow.trace.succeeded().count { it.name.contains(":CONSENSUS ") } == 3
+
+            def genotypes = path("${outputDir}/results/S1/S1.csv").readLines()
+            def header = genotypes[0].split(",", -1).toList()
+            def cell = header.indexOf("cell")
+            // Rows come in cell completion order: drop the row index and sort
+            def rows = genotypes.drop(1).collect { it.split(",", -1).drop(1).join(",") }.sort()
+            assert genotypes.drop(1).collect { it.split(",", -1)[cell] }.toSet() ==
+                ["AAACCCAAGAAACACT", "AAACCCAAGAAACCAT", "AAACCCAAGAAACCCA"].toSet()
+
+            assert snapshot(
+                header,
+                rows,
+                path("${outputDir}/results/S1/logs/target.log").readLines(),
+            ).match()
+        }
+
+    }
+
+}

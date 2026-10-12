@@ -11,8 +11,8 @@ include { CONSENSUS } from "./modules/consensus.nf"
 include { COLLAPSE } from "./modules/collapse_consensus.nf"
 include { GENOTYPING } from "./modules/genotyping.nf"
 
- 
-// 
+
+//
 
 
 //----------------------------------------------------------------------------//
@@ -20,9 +20,9 @@ include { GENOTYPING } from "./modules/genotyping.nf"
 //----------------------------------------------------------------------------//
 
 workflow long_reads {
-     
+
     take:
-        ch_input 
+        ch_input
 
     main:
 
@@ -30,18 +30,37 @@ workflow long_reads {
         MERGE_READS(BLAZE.out.filtered_fastq.groupTuple(by:0))
         MINIMAP2(MERGE_READS.out.filtered_fastq)
         FIXTAGS(MINIMAP2.out.bam)
-        SPLIT_BAM(FIXTAGS.out.bam)
+        long_reads_from_tagged_bam(FIXTAGS.out.bam)
+
+    emit:
+
+        results = long_reads_from_tagged_bam.out.results
+
+}
+
+//----------------------------------------------------------------------------//
+// long_reads from a tagged, aligned BAM per sample (FIXTAGS output)
+//----------------------------------------------------------------------------//
+
+workflow long_reads_from_tagged_bam {
+
+    take:
+        ch_tagged_bams // [sample, bam]
+
+    main:
+
+        SPLIT_BAM(ch_tagged_bams)
         ch_cell_bams = SPLIT_BAM.out.cell_bams
             .map { it ->
-                def sample = it[0] 
-                def paths = it[1]     
+                def sample = it[0]
+                def paths = it[1]
                 return paths.collect { cell_path ->
                     def path_splitted = cell_path.toString().split('/')
                     def cell = path_splitted[-1].toString().split('\\.')[0]
                     return [sample, cell, cell_path]
                 }
-            } 
-            .flatMap { it } 
+            }
+            .flatMap { it }
         CONSENSUS(ch_cell_bams)
         COLLAPSE(CONSENSUS.out.tables.groupTuple(by: 0))
         GENOTYPING(COLLAPSE.out.allele_counts)

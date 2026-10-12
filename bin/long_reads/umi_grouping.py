@@ -23,18 +23,18 @@ def levenshtein(a, b, max_d):
         return 0
     if abs(len(a) - len(b)) > max_d:
         return max_d + 1
-    out = max_d + 1
-    # prev[j] is the distance between a[:i-1] and b[:j]; cells outside the band are out
-    prev = [j if j <= max_d else out for j in range(len(b) + 1)]
+    too_far = max_d + 1
+    # prev[j] is the distance between a[:i-1] and b[:j]; cells outside the band are too_far
+    prev = [j if j <= max_d else too_far for j in range(len(b) + 1)]
     for i in range(1, len(a) + 1):
         lo, hi = max(1, i - max_d), min(len(b), i + max_d)
-        cur = [out] * (len(b) + 1)
+        cur = [too_far] * (len(b) + 1)
         if i <= max_d:
             cur[0] = i
         for j in range(lo, hi + 1):
-            cur[j] = min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a[i - 1] != b[j - 1]), out)
+            cur[j] = min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a[i - 1] != b[j - 1]), too_far)
         if min(cur[max(0, lo - 1) : hi + 1]) > max_d:
-            return out
+            return too_far
         prev = cur
     return prev[-1]
 
@@ -74,7 +74,7 @@ def cluster_umis(counts, *, max_ld, ratio, small_reads):
     IDs are 0, 1, ... in seed order (by count descending, then UB).
     """
     if any(n <= 0 for n in counts.values()):
-        raise ValueError("UMI read counts must be positive")
+        raise ValueError("Reads per raw UB must be positive")
     umis = sorted(counts, key=lambda u: (-counts[u], u))
     neighbours = defaultdict(list)
     for i, j, _ in close_pairs(umis, max_ld):

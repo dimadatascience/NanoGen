@@ -74,6 +74,12 @@ cells = {
         *[("wt", "GAGAGAGATCTC", {})] * 3,
         ("wt_lowq", "GAGAGAGATCTC", dict(snv=alt, lowq_snv=True)),
         *[("small", "ATATATATCGCG", dict(snv=alt))] * 1,
+        # Shortcut MUT where the general rule would say WT:
+        # 3 of 9 reads carry the 1 bp deletion, 4 of 14 the 3 bp deletion
+        *[("shortcut_del1", "TGCATGCATGCA", dict(del1=True))] * 3,
+        *[("shortcut_del1_ref", "TGCATGCATGCA", {})] * 6,
+        *[("shortcut_del3", "CATGCATGCATG", dict(del3=True))] * 4,
+        *[("shortcut_del3_ref", "CATGCATGCATG", {})] * 10,
     ],
 }
 for cb, reads in cells.items():

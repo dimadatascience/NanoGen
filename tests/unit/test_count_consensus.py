@@ -207,7 +207,7 @@ def test_count_targets_scores_every_alt_at_a_covered_site():
         line("chr1", 300, "G", block(("G", 8), ("-G", 3))),
     ]
 
-    table = cc.count_targets(targets(), lines, min_fraction=0.6, min_read=2)
+    table = cc.count_targets(targets(), lines, min_fraction=0.6, min_consensus=2)
 
     assert table.columns.tolist() == [
         "chr", "start", "end", "ref", "alt", "gene", "WT", "MUT", "MIS",
@@ -224,7 +224,7 @@ def test_count_targets_scores_every_alt_at_a_covered_site():
 def test_count_targets_skips_lines_whose_ref_does_not_match():
     lines = [line("chr1", 120, "G", block(("A", 5)))]
 
-    table = cc.count_targets(targets(), lines, min_fraction=0.6, min_read=2)
+    table = cc.count_targets(targets(), lines, min_fraction=0.6, min_consensus=2)
 
     assert table[["WT", "MUT", "MIS"]].values.sum() == 0
 
@@ -232,6 +232,6 @@ def test_count_targets_skips_lines_whose_ref_does_not_match():
 def test_count_targets_does_not_mutate_its_input():
     t = targets()
 
-    cc.count_targets(t, [], min_fraction=0.6, min_read=2)
+    cc.count_targets(t, [], min_fraction=0.6, min_consensus=2)
 
     assert "WT" not in t.columns

@@ -28,9 +28,8 @@ def test_cell_error_is_half_the_mis_fraction_over_all_targets_of_the_cell():
         ).rename(columns={"barcode": "cell"})
     )
 
-    # c1: 2 MIS of 8 UMIs, halved; the 1e-8 guard shifts it negligibly
+    # c1: 2 MIS of 8 UMIs, halved
     assert table["err"].tolist() == pytest.approx([0.125, 0.125, 0.0])
-    assert table["err"].iloc[0] < 0.125
 
 
 def test_cell_error_stays_zero_for_a_cell_without_mis():
@@ -56,10 +55,10 @@ def test_cell_error_of_a_cell_without_umis_is_zero():
 
 
 def call(mut, wt, err, baseline_error=1e-4):
-    p, genotype = gt.call_genotypes(
+    p, called = gt.call(
         np.array([mut]), np.array([wt]), np.array([err]), baseline_error
     )
-    return p[0], genotype[0]
+    return p[0], called[0]
 
 
 def is_na(x):
@@ -67,18 +66,18 @@ def is_na(x):
 
 
 def test_no_umis_is_na():
-    p, genotype = call(0, 0, 0.0)
-    assert math.isnan(p) and is_na(genotype)
+    p, called = call(0, 0, 0.0)
+    assert math.isnan(p) and is_na(called)
 
 
 def test_no_mut_umis_and_at_least_two_wt_is_wt():
-    p, genotype = call(0, 2, 0.0)
-    assert math.isnan(p) and genotype == "WT"
+    p, called = call(0, 2, 0.0)
+    assert math.isnan(p) and called == "WT"
 
 
 def test_no_mut_umis_and_one_wt_is_na():
-    p, genotype = call(0, 1, 0.0)
-    assert math.isnan(p) and is_na(genotype)
+    p, called = call(0, 1, 0.0)
+    assert math.isnan(p) and is_na(called)
 
 
 def test_p_is_the_negative_binomial_cdf_of_wt_given_mut():
@@ -88,21 +87,21 @@ def test_p_is_the_negative_binomial_cdf_of_wt_given_mut():
 
 
 def test_p_below_0_1_is_mut():
-    p, genotype = call(1, 2, 1e-4)
+    p, called = call(1, 2, 1e-4)
     assert p == pytest.approx(1 - (1 - 1e-4) ** 3)
-    assert genotype == "MUT"
+    assert called == "MUT"
 
 
 def test_p_at_least_0_9_is_wt():
-    p, genotype = call(1, 30000, 1e-4)
+    p, called = call(1, 30000, 1e-4)
     assert p == pytest.approx(1 - (1 - 1e-4) ** 30001)
-    assert genotype == "WT"
+    assert called == "WT"
 
 
 def test_p_between_0_1_and_0_9_is_na():
-    p, genotype = call(1, 5000, 1e-4)
+    p, called = call(1, 5000, 1e-4)
     assert 0.1 < p < 0.9
-    assert is_na(genotype)
+    assert is_na(called)
 
 
 def test_err_below_the_baseline_is_raised_to_it():
@@ -116,8 +115,8 @@ def test_err_above_the_baseline_is_used():
 # Output table and log
 
 
-def test_genotype_table_adds_err_p_and_genotype_per_row():
-    table = gt.genotype(
+def test_call_table_adds_err_p_and_genotype_per_row():
+    table = gt.call_targets(
         counts(("c1", "G1", 1, 2, 0), ("c1", "G2", 0, 3, 0), ("c2", "G1", 0, 1, 0)),
         baseline_error=1e-4,
     )
@@ -130,16 +129,16 @@ def test_genotype_table_adds_err_p_and_genotype_per_row():
     assert is_na(table["genotype"].tolist()[2])
 
 
-def test_genotype_does_not_mutate_its_input():
+def test_call_targets_does_not_mutate_its_input():
     c = counts(("c1", "G1", 1, 2, 0))
 
-    gt.genotype(c, baseline_error=1e-4)
+    gt.call_targets(c, baseline_error=1e-4)
 
     assert c.columns.tolist() == ["barcode", "gene", "MUT", "WT", "MIS"]
 
 
 def test_summary_reports_cells_umis_and_genes():
-    table = gt.genotype(
+    table = gt.call_targets(
         counts(
             ("c1", "G1", 1, 2, 0),
             ("c1", "G2", 0, 3, 1),

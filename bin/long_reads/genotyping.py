@@ -65,9 +65,9 @@ def estimate_cell_error(barcodes):
     return barcodes
 
 
-def call_genotypes(mut, wt, experimental_error, baseline_error=1e-4):
+def call(mut, wt, experimental_error, baseline_error=1e-4):
     """
-    Call genotypes from MUT and WT consensus counts.
+    Make calls from MUT and WT consensus counts.
 
     Parameters:
         mut (np.ndarray): MUT consensus counts.
@@ -77,38 +77,38 @@ def call_genotypes(mut, wt, experimental_error, baseline_error=1e-4):
 
     Returns:
         Tuple[np.ndarray, np.ndarray]: The negative binomial p of each pair, and
-                                       its genotype: 'WT', 'MUT' or NaN.
+                                       its call: 'WT', 'MUT' or NaN.
     """
     experimental_error = np.maximum(experimental_error, baseline_error)
 
     p = nbinom.cdf(k=wt, n=mut, p=experimental_error)
 
-    genotypes = np.zeros(p.size)
-    genotypes[(wt == 0) & (mut == 0)] = (
+    codes = np.zeros(p.size)
+    codes[(wt == 0) & (mut == 0)] = (
         np.nan
     )  # Real NAs: counts mut==0 and counts wt==0
-    genotypes[p < 0.1] = 1  # MUT: p WT very low (<.1)
-    genotypes[(np.isnan(p)) & (wt >= 2)] = (
+    codes[p < 0.1] = 1  # MUT: p WT very low (<.1)
+    codes[(np.isnan(p)) & (wt >= 2)] = (
         0  # WT: p NA for counts mut == 0 and count wt>=3
     )
-    genotypes[p >= 0.9] = 0  # WT: p WT very high (>=.9)
-    genotypes[(np.isnan(p)) & (wt < 2)] = (
+    codes[p >= 0.9] = 0  # WT: p WT very high (>=.9)
+    codes[(np.isnan(p)) & (wt < 2)] = (
         np.nan
     )  # NAs (impossible to assign): p NA for counts mut == 0 but count wt<3
-    genotypes[(p >= 0.1) & (p < 0.9)] = (
+    codes[(p >= 0.1) & (p < 0.9)] = (
         np.nan
     )  # NAs (impossible to assign): p WT between .1 and .9
 
-    genotype = np.select(
-        [genotypes == 0, genotypes == 1], ["WT", "MUT"], default="-"
+    calls = np.select(
+        [codes == 0, codes == 1], ["WT", "MUT"], default="-"
     ).astype(object)
-    genotype[genotype == "-"] = np.nan
-    return p, genotype
+    calls[calls == "-"] = np.nan
+    return p, calls
 
 
-def genotype(counts, baseline_error=1e-4):
+def call_targets(counts, baseline_error=1e-4):
     """
-    Genotype every cell x target.
+    Make the call of every cell x target.
 
     Parameters:
         counts (pd.DataFrame): Consensus counts with columns [MUT, WT, MIS, barcode].
@@ -119,20 +119,20 @@ def genotype(counts, baseline_error=1e-4):
                       'genotype' columns.
     """
     barcodes = estimate_cell_error(counts.rename(columns={"barcode": "cell"}))
-    p, genotypes = call_genotypes(
+    p, calls = call(
         barcodes["MUT"].values,
         barcodes["WT"].values,
         barcodes["err"].values,
         baseline_error,
     )
     barcodes["p"] = p
-    barcodes["genotype"] = genotypes
+    barcodes["genotype"] = calls
     return barcodes
 
 
 def summarise(barcodes):
     """
-    Summarise the genotyped table for genotype.log.
+    Summarise the called table for genotype.log.
 
     Returns:
         List[str]: One line per statistic.
@@ -155,7 +155,7 @@ def main():
 
     args = _parse_args()
 
-    barcodes = genotype(pd.read_csv(args.input), args.baseline_error)
+    barcodes = call_targets(pd.read_csv(args.input), args.baseline_error)
     barcodes.to_csv(args.output)
 
     # collect statistics

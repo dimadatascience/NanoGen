@@ -6,23 +6,23 @@
                 "chrT,20,20,A,C,SNV,2,1,0,AAACCCAAGAAACACT",
                 "chrT,40,40,A,-A,DEL1,2,1,0,AAACCCAAGAAACACT",
                 "chrT,55,55,A,-ACC,DEL3,2,1,0,AAACCCAAGAAACACT",
-                "chrT,20,20,A,C,SNV,1,0,0,AAACCCAAGAAACCAT",
-                "chrT,40,40,A,-A,DEL1,2,0,0,AAACCCAAGAAACCAT",
-                "chrT,55,55,A,-ACC,DEL3,2,0,0,AAACCCAAGAAACCAT"
+                "chrT,20,20,A,C,SNV,3,0,0,AAACCCAAGAAACCAT",
+                "chrT,40,40,A,-A,DEL1,3,1,0,AAACCCAAGAAACCAT",
+                "chrT,55,55,A,-ACC,DEL3,3,1,0,AAACCCAAGAAACCAT"
             ],
             [
                 ",chr,start,end,ref,alt,gene,WT,MUT,MIS,cell,err,p,genotype",
                 "0,chrT,20,20,A,C,SNV,2,1,0,AAACCCAAGAAACACT,0.0,0.00029997000100000004,MUT",
                 "1,chrT,40,40,A,-A,DEL1,2,1,0,AAACCCAAGAAACACT,0.0,0.00029997000100000004,MUT",
                 "2,chrT,55,55,A,-ACC,DEL3,2,1,0,AAACCCAAGAAACACT,0.0,0.00029997000100000004,MUT",
-                "3,chrT,20,20,A,C,SNV,1,0,0,AAACCCAAGAAACCAT,0.0,,",
-                "4,chrT,40,40,A,-A,DEL1,2,0,0,AAACCCAAGAAACCAT,0.0,,WT",
-                "5,chrT,55,55,A,-ACC,DEL3,2,0,0,AAACCCAAGAAACCAT,0.0,,WT"
+                "3,chrT,20,20,A,C,SNV,3,0,0,AAACCCAAGAAACCAT,0.0,,WT",
+                "4,chrT,40,40,A,-A,DEL1,3,1,0,AAACCCAAGAAACCAT,0.0,0.0003999400039999001,MUT",
+                "5,chrT,55,55,A,-ACC,DEL3,3,1,0,AAACCCAAGAAACCAT,0.0,0.0003999400039999001,MUT"
             ],
             [
                 "Total number of cells: 2",
-                "Total number of UMIs: 14",
-                "Median UMI per cell: 7.0",
+                "Total number of UMIs: 20",
+                "Median UMI per cell: 10.0",
                 "Median genes covered per cell: 3.0",
                 "Fraction of cells with UMIs: 1.0"
             ]
@@ -31,6 +31,6 @@
             "nf-test": "0.9.2",
             "nextflow": "25.04.4"
         },
-        "timestamp": "2026-10-12T13:56:19.536317"
+        "timestamp": "2026-10-12T14:21:01.337007"
     }
 }

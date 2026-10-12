@@ -1,0 +1,39 @@
+nextflow_workflow {
+
+    name "CONSENSUS -> COLLAPSE -> GENOTYPING"
+    script "./workflows/consensus_tail.nf"
+    workflow "CONSENSUS_TAIL"
+
+    // Characterisation test: the snapshot pins current behaviour. It is not
+    // hand-specified; later tickets replace it with spec assertions.
+    test("two cells, SNV and deletion targets") {
+
+        when {
+            params {
+                bedfile                 = "${baseDir}/tests/data/consensus_tail/targets.bed"
+                // ref.fa.fai is committed alongside, so bam-readcount never writes one
+                minimap2_input_genome   = "${baseDir}/tests/data/consensus_tail/ref.fa"
+                outdir                  = "${outputDir}/results"
+            }
+            workflow {
+                """
+                input[0] = Channel.of(
+                    ['S1', 'AAACCCAAGAAACACT', file('${baseDir}/tests/data/consensus_tail/AAACCCAAGAAACACT.sam')],
+                    ['S1', 'AAACCCAAGAAACCAT', file('${baseDir}/tests/data/consensus_tail/AAACCCAAGAAACCAT.sam')],
+                )
+                """
+            }
+        }
+
+        then {
+            assert workflow.success
+            assert snapshot(
+                path(workflow.out.counts.get(0).get(1)).linesGzip,
+                path(workflow.out.genotypes.get(0).get(1)).readLines(),
+                path(workflow.out.gt_log.get(0).get(1)).readLines(),
+            ).match()
+        }
+
+    }
+
+}

@@ -4,7 +4,6 @@ import argparse
 import os
 import re
 
-import numpy as np
 import pandas as pd
 
 
@@ -42,9 +41,9 @@ def _parse_args():
         "-mf",
         "--min_fraction",
         type=float,
-        default=0.75,
+        default=0.6,
         required=False,
-        help="The minimum fraction of reads supporting a base.",
+        help="f_min: the minimum fraction of a cluster's usable reads supporting its label.",
     )
     parser.add_argument(
         "-mr",
@@ -52,7 +51,7 @@ def _parse_args():
         type=int,
         default=3,
         required=False,
-        help="The minimum number of reads supporting a base required to consider it for consensus.",
+        help="n_min: the minimum number of usable reads supporting a cluster's label.",
     )
     args = parser.parse_args()
     return args
@@ -112,108 +111,168 @@ def parse_readcount_line(line):
 
 
 # Consensus
-def label_cluster(entries, ref, alt, min_fraction=0.75, min_consensus=3):
-    """
-    Assign a consensus label to one UMI cluster.
+#
+# bam-readcount -p lists a block for every UMI cluster with reads in the pileup
+# at a site, so every block is a cluster covering the target. Each covering
+# cluster is exactly one of: sub-n_min, labelled (WT, MUT or OTH) or discarded.
 
-    Evaluates whether the reference or alternative base meets consensus
-    criteria based on minimum fraction and minimum consensus read counts.
+SUBNMIN = "sub-n_min"
+DISCARDED = "discarded"
+COUNT_COLUMNS = ["WT", "MUT", "OTH", "subnmin_umis", "subnmin_reads"]
+BASES = ("A", "C", "G", "T")
+
+
+def allele_counts(entries, ref, alt):
+    """
+    Count the usable reads of one UMI cluster as REF, ALT and OTH.
+
+    At an SNV, a usable read carries A, C, G or T at the site. N reads and reads
+    with a deletion over the site (reported as '-' entries) are not usable, and
+    '+' entries are skipped because their reads are already in their base count.
+    Base quality is filtered upstream, by bam-readcount -b.
+
+    At an indel target, main's matching is kept until tolerant indel ALT
+    replaces it: REF is the reference base, ALT the exact alt (len(alt) <= 2)
+    or the largest entry overlapping it by substring, OTH every other non-N entry.
 
     Parameters:
         entries (Iterable[Tuple[str, int]]): (base, read count) of the cluster.
-        ref (str): The reference base to be evaluated for consensus.
-        alt (str): The alternative base to be evaluated for consensus.
-        min_fraction (float, optional): The minimum fraction of reads supporting a base
-                                        necessary to declare a consensus. Defaults to 0.75.
-        min_consensus (int, optional): The minimum number of reads supporting a base required
-                                       to consider it for consensus. Defaults to 3.
+        ref (str): The reference base.
+        alt (str): The alternative allele, in bam-readcount notation.
 
     Returns:
-        str or None: 'WT', 'MUT' or 'OTH', or None if the cluster gets no label.
+        Tuple[int, int, int]: r, a and o, the REF, ALT and OTH usable reads.
     """
-    counts = {ref: 0, alt: 0, "oth": 0}
+    if alt.startswith(("+", "-")):
+        return _indel_allele_counts(entries, ref, alt)
+
+    r = a = o = 0
     for base, read_count in entries:
         if base == ref:
-            counts[ref] = read_count
+            r += read_count
+        elif base == alt:
+            a += read_count
+        elif base in BASES:
+            o += read_count
+    return r, a, o
+
+
+def _indel_allele_counts(entries, ref, alt):
+    """main's indel matching; see allele_counts."""
+    r = a = o = 0
+    for base, read_count in entries:
+        if base == ref:
+            r = read_count
         elif len(alt) <= 2 and base == alt:
-            counts[alt] = read_count
+            a = read_count
         elif len(alt) > 2 and len(base) > 2 and (base in alt or alt in base):
-            counts[alt] = np.maximum(read_count, counts[alt])
+            a = max(read_count, a)
         elif base != "N":
-            counts["oth"] += read_count
+            o += read_count
+    return r, a, o
 
-    maximum = np.max([counts[ref], counts[alt]])
-    count_values = np.array(list(counts.values()))
-    key = np.array(list(counts.keys()))[count_values == np.max(count_values)]
 
-    if len(alt) == 2 and counts[alt] > 2 and counts[alt]/(counts[ref] + counts[alt]) > 0.25:
-        return "MUT"
-    elif len(alt) > 3 and counts[alt] > 3:
-        return "MUT"
-    elif (
-        maximum >= min_consensus and maximum / np.sum(count_values) >= min_fraction
-    ):
-        if key == ref:
-            return "WT"
-        elif key == alt:
-            return "MUT"
-        else:
-            return "OTH"
+def consensus_label(r, a, o, min_fraction=0.6, min_reads=3):
+    """
+    Rule A, equation (1): the consensus label of a cluster's usable reads.
+
+    A label X is assigned iff count_X >= n_min and count_X / (r + a + o) >= f_min.
+    OTH is tested on o itself. With f_min > 0.5 at most one allele qualifies.
+
+    Parameters:
+        r, a, o (int): REF, ALT and OTH usable reads (see allele_counts).
+        min_fraction (float, optional): f_min. Defaults to 0.6.
+        min_reads (int, optional): n_min. Defaults to 3.
+
+    Returns:
+        str or None: 'WT', 'MUT' or 'OTH', or None if no allele qualifies.
+    """
+    usable = r + a + o
+    for label, count in (("WT", r), ("MUT", a), ("OTH", o)):
+        if count >= min_reads and count / usable >= min_fraction:
+            return label
     return None
 
 
-def consensus_on_umi(line, ref, alt, min_fraction=0.75, min_consensus=3):
+def classify_counts(r, a, o, alt, min_fraction=0.6, min_reads=3):
     """
-    Create consensus based on bam-readcount output where each read group (e.g. same UMI tag)
-    has been assigned to library ID in RG within bam.
+    Class of a covering cluster: sub-n_min, a consensus label or discarded.
 
     Parameters:
-        line (str): A string from a sequencing data file which contains multiple data blocks
-                    enclosed in curly braces. Each block includes base counts.
-        ref (str): The reference base to be evaluated for consensus.
-        alt (str): The alternative base to be evaluated for consensus.
-        min_fraction (float, optional): The minimum fraction of reads supporting a base
-                                        necessary to declare a consensus. Defaults to 0.75.
-        min_consensus (int, optional): The minimum number of reads supporting a base required
-                                       to consider it for consensus. Defaults to 3.
+        r, a, o (int): REF, ALT and OTH usable reads (see allele_counts).
+        alt (str): The alternative allele, for main's indel shortcuts.
+        min_fraction (float, optional): f_min. Defaults to 0.6.
+        min_reads (int, optional): n_min. Defaults to 3.
 
     Returns:
-        Dict: A dictionary containing counts of consensus results for each data
-                       block, divided by consensus types ('WT', 'MUT', 'OTH').
+        str: SUBNMIN if r + a + o < n_min, else 'WT', 'MUT' or 'OTH' by rule A,
+             else DISCARDED.
     """
-    return tally_clusters(parse_clusters(line), ref, alt, min_fraction, min_consensus)
+    if r + a + o < min_reads:
+        return SUBNMIN
+    # main's indel shortcuts, kept until tolerant indel ALT removes them
+    if len(alt) == 2 and a > 2 and a / (r + a) > 0.25:
+        return "MUT"
+    if len(alt) > 3 and a > 3:
+        return "MUT"
+    return consensus_label(r, a, o, min_fraction, min_reads) or DISCARDED
 
 
-def tally_clusters(clusters, ref, alt, min_fraction=0.75, min_consensus=3):
+def consensus_on_umi(line, ref, alt, min_fraction=0.6, min_reads=3):
     """
-    Count the consensus labels of parsed clusters (see parse_clusters).
+    Tally the clusters of one bam-readcount -p line, where each read group
+    (a UMI cluster) has its own library ID in the BAM's RG.
+
+    Parameters:
+        line (str): One bam-readcount -p line.
+        ref (str): The reference base.
+        alt (str): The alternative allele, in bam-readcount notation.
+        min_fraction (float, optional): f_min. Defaults to 0.6.
+        min_reads (int, optional): n_min. Defaults to 3.
 
     Returns:
-        Dict: Counts of 'WT', 'MUT' and 'OTH' labels over the clusters.
+        Dict: See tally_clusters.
     """
-    consensus_counts = {"WT": 0, "MUT": 0, "OTH": 0}
+    return tally_clusters(parse_clusters(line), ref, alt, min_fraction, min_reads)
+
+
+def tally_clusters(clusters, ref, alt, min_fraction=0.6, min_reads=3):
+    """
+    Tally the classes of parsed clusters (see parse_clusters) at one target.
+
+    Returns:
+        Dict: Number of clusters labelled 'WT', 'MUT' and 'OTH' and 'discarded',
+              plus 'subnmin_umis', the number of sub-n_min clusters, and
+              'subnmin_reads', their usable reads.
+    """
+    counts = {"WT": 0, "MUT": 0, "OTH": 0, DISCARDED: 0, "subnmin_umis": 0, "subnmin_reads": 0}
     for entries in clusters:
-        label = label_cluster(entries, ref, alt, min_fraction, min_consensus)
-        if label is not None:
-            consensus_counts[label] += 1
-    return consensus_counts
+        r, a, o = allele_counts(entries, ref, alt)
+        cls = classify_counts(r, a, o, alt, min_fraction, min_reads)
+        if cls == SUBNMIN:
+            counts["subnmin_umis"] += 1
+            counts["subnmin_reads"] += r + a + o
+        else:
+            counts[cls] += 1
+    return counts
 
 
-def count_targets(target, lines, min_fraction=0.75, min_consensus=3):
+def count_targets(target, lines, min_fraction=0.6, min_reads=3):
     """
-    Count consensus labels per target for one cell.
+    Count consensus labels and sub-n_min clusters per target for one cell.
 
     Parameters:
         target (pd.DataFrame): Targets with columns ['chr', 'start', 'end', 'ref', 'alt', 'gene'].
         lines (Iterable[str]): bam-readcount -p output lines.
-        min_fraction (float, optional): See label_cluster. Defaults to 0.75.
-        min_consensus (int, optional): See label_cluster. Defaults to 3.
+        min_fraction (float, optional): f_min. Defaults to 0.6.
+        min_reads (int, optional): n_min. Defaults to 3.
 
     Returns:
-        pd.DataFrame: A copy of target with 'WT', 'MUT' and 'OTH' consensus counts.
+        pd.DataFrame: A copy of target with the COUNT_COLUMNS: 'WT', 'MUT' and
+                      'OTH' labelled clusters, 'subnmin_umis' and 'subnmin_reads'.
     """
     target = target.copy()
-    target[["WT", "MUT", "OTH"]] = 0
+    target[COUNT_COLUMNS] = 0
 
     for line in lines:
         chrom, start_pos, ref, clusters = parse_readcount_line(line)
@@ -223,9 +282,9 @@ def count_targets(target, lines, min_fraction=0.75, min_consensus=3):
             & (target["ref"] == ref)
         ]
         for alt in alts:
-            counts = tally_clusters(clusters, ref, alt, min_fraction, min_consensus)
+            counts = tally_clusters(clusters, ref, alt, min_fraction, min_reads)
             # Rows are matched on chr, start and alt only, as on main
-            for val in ["WT", "MUT", "OTH"]:
+            for val in COUNT_COLUMNS:
                 target.loc[
                     (target["chr"] == chrom)
                     & (target["start"] == start_pos)

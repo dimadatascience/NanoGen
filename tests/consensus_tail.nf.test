@@ -4,8 +4,6 @@ nextflow_workflow {
     script "./workflows/consensus_tail.nf"
     workflow "CONSENSUS_TAIL"
 
-    // Characterisation test: the snapshot pins current behaviour. It is not
-    // hand-specified; later tickets replace it with spec assertions.
     test("synthetic fixture cells") {
 
         when {
@@ -14,6 +12,9 @@ nextflow_workflow {
                 // contig.fa.fai is committed alongside, so bam-readcount never writes one
                 minimap2_input_genome   = "${baseDir}/tests/fixtures/synthetic/contig.fa"
                 outdir                  = "${outputDir}/results"
+                // n_min = 3, as the fixture scenarios assume
+                min_reads               = 3
+                min_fraction            = 0.6
             }
             workflow {
                 """
@@ -25,8 +26,40 @@ nextflow_workflow {
 
         then {
             assert workflow.success
+
+            // Per-cell consensus counts, hand-specified from the fixture scenarios.
+            // SNV1 (AAACCCAAGAAACACT): wt is WT; the ld2_pair molecules and sec_supp
+            // are MUT; oth (T) is OTH, tested on its own count; subnmin is a
+            // sub-n_min cluster with 2 usable reads.
+            // DEL (AAACCCAAGAAACCCA): del_k is discarded under main's indel
+            // matching, and del_lowq is sub-n_min with no usable read, its anchor
+            // base being under -b 20.
+            def header = "chr,start,end,ref,alt,gene,WT,MUT,OTH,subnmin_umis,subnmin_reads,barcode"
+            def snv  = "AAACCCAAGAAACACT"
+            def mix  = "AAACCCAAGAAACCAT"
+            def del  = "AAACCCAAGAAACCCA"
+            assert path(workflow.out.counts.get(0).get(1)).linesGzip == [
+                header,
+                "chrF,301,301,A,G,SNV1,1,3,1,1,2,${snv}",
+                "chrF,701,701,A,G,SNV2,0,0,0,0,0,${snv}",
+                "chrF,1002,1002,T,-TTA,DEL,0,0,0,0,0,${snv}",
+                "chrF,1301,1301,A,+GTC,INS,0,0,0,0,0,${snv}",
+                "chrF,1602,1602,T,-T,HP,0,0,0,0,0,${snv}",
+                "chrF,301,301,A,G,SNV1,0,0,0,0,0,${mix}",
+                "chrF,701,701,A,G,SNV2,1,2,0,0,0,${mix}",
+                "chrF,1002,1002,T,-TTA,DEL,0,0,0,0,0,${mix}",
+                "chrF,1301,1301,A,+GTC,INS,1,1,0,0,0,${mix}",
+                "chrF,1602,1602,T,-T,HP,1,1,0,0,0,${mix}",
+                "chrF,301,301,A,G,SNV1,0,0,0,0,0,${del}",
+                "chrF,701,701,A,G,SNV2,0,0,0,0,0,${del}",
+                "chrF,1002,1002,T,-TTA,DEL,1,0,0,1,0,${del}",
+                "chrF,1301,1301,A,+GTC,INS,0,0,0,0,0,${del}",
+                "chrF,1602,1602,T,-T,HP,0,0,0,0,0,${del}",
+            ].collect { it.toString() }
+
+            // Characterisation snapshot of the calls: the caller is replaced by
+            // the per-target error ticket.
             assert snapshot(
-                path(workflow.out.counts.get(0).get(1)).linesGzip,
                 path(workflow.out.genotypes.get(0).get(1)).readLines(),
                 path(workflow.out.gt_log.get(0).get(1)).readLines(),
             ).match()

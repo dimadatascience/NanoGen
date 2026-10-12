@@ -18,13 +18,14 @@ process CONSENSUS {
     """ 
     # Generate cell-target-site-UMI consensus allele counts. The window (-w) and
     # UMI distance (-d) are fixed at the former params' defaults until cell x target
-    # grouping replaces umi_tools and the windows.
+    # grouping replaces umi_tools and the windows. Every cluster is counted (-c 1):
+    # count_consensus.py applies n_min to usable reads and reports sub-n_min clusters.
     bash ${baseDir}/bin/long_reads/make_consensus.sh \
     -i ${bam} \
     -b ${params.bedfile} \
     -r ${params.minimap2_input_genome} \
     -q ${params.min_mapping_quality} \
-    -c ${params.min_reads} \
+    -c 1 \
     -w 100 \
     -m ${params.snv_min_base_quality} \
     -d 1

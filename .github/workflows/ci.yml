@@ -30,7 +30,7 @@ jobs:
         id: image
         run: |
           image=$(sed -n "s/^ *container *= *'\(.*\)'.*/\1/p" nextflow.config)
-          test -n "$image"
+          test "$(printf '%s\n' "$image" | grep -c .)" -eq 1
           echo "image=$image" >> "$GITHUB_OUTPUT"
 
       - name: pytest

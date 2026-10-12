@@ -19,6 +19,10 @@ def _processes():
             yield pytest.param(text[start:end], id=f"{nf.name}:{name}")
 
 
+def test_processes_are_found():
+    assert list(_processes())
+
+
 @pytest.mark.parametrize("body", list(_processes()))
 def test_process_has_stub(body):
     assert re.search(r"^\s*stub:", body, re.MULTILINE)

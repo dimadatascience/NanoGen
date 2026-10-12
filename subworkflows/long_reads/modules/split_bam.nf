@@ -44,7 +44,7 @@ process SPLIT_BAM {
 
     stub:
     """
-    # Three mock cells
+    # Three mock cells (tests/main.nf.test counts on three CONSENSUS tasks)
     rm -f ${bam}
     touch AAAAAAAAAAAAAAAAAA.bam CCCCCCCCCCCCCCCCCC.bam GGGGGGGGGGGGGGGGGG.bam
     touch target.log

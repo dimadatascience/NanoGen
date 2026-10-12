@@ -121,6 +121,12 @@ class WorkflowMain {
             log.error "Please provide an input samplesheet to the pipeline e.g. '--input samplesheet.csv'"
             System.exit(1)
         }
+
+        // Only the fastq entry point aligns reads, so only it needs the minimap2 index
+        if (params.input_type == 'fastq' && !params.minimap2_mindex) {
+            log.error "--minimap2_mindex is required with --input_type fastq"
+            System.exit(1)
+        }
     }
     //
     // Get attribute from genome config file e.g. fasta

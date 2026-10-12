@@ -128,6 +128,15 @@ def test_cell_bams_are_tagged_and_named_by_cell_barcode():
         assert len(read.get_tag("UB")) == 12
 
 
+def test_tagged_bam_holds_every_cell_bam_record():
+    # The sample-level BAM as FIXTAGS emits it: SPLIT_BAM on it gives back the cells
+    with pysam.AlignmentFile(str(DATA / "tagged" / "S1.bam")) as f:
+        tagged = sorted((r.get_tag("CB"), r.to_string()) for r in f)
+    cells = sorted((cell, r.to_string()) for cell, r in _records())
+    assert tagged == cells
+    assert len({cell for cell, _ in tagged}) == 3
+
+
 def test_distinct_molecules_in_a_cell_have_far_apart_umis():
     by_cell = defaultdict(set)
     for cell, r in _records():

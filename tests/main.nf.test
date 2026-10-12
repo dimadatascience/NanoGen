@@ -35,6 +35,114 @@ nextflow_pipeline {
 
     }
 
+    test("tagged BAM samplesheet starts at SPLIT_BAM") {
+
+        when {
+            params {
+                def samplesheet = new File("${outputDir}/samplesheet.csv")
+                samplesheet.parentFile.mkdirs()
+                samplesheet.text = [
+                    "sample,bam",
+                    "S1,${baseDir}/tests/fixtures/synthetic/tagged/S1.bam",
+                ].join("\n") + "\n"
+
+                input           = samplesheet.toString()
+                input_type      = "tagged_bam"
+                outdir          = "${outputDir}/results"
+                minimap2_mindex = null
+            }
+        }
+
+        then {
+            assert workflow.success
+            // SPLIT_BAM, CONSENSUS x3 cells, COLLAPSE, GENOTYPING
+            assert workflow.trace.succeeded().size() == 6
+            assert workflow.trace.succeeded().collect { it.name.tokenize(' ')[0].tokenize(':')[-1] }.toSet() ==
+                ["SPLIT_BAM", "CONSENSUS", "COLLAPSE", "GENOTYPING"].toSet()
+            assert path("${outputDir}/results/S1/S1.csv").exists()
+            assert path("${outputDir}/results/S1/logs/genotype.log").exists()
+            assert path("${outputDir}/results/S1/logs/target.log").exists()
+            assert !path("${outputDir}/results/S1/logs/blaze.log").exists()
+        }
+
+    }
+
+    test("a samplesheet that does not match --input_type fails") {
+
+        when {
+            params {
+                def samplesheet = new File("${outputDir}/samplesheet.csv")
+                samplesheet.parentFile.mkdirs()
+                samplesheet.text = [
+                    "sample,lane,fastq",
+                    "S1,L1,${baseDir}/tests/data/S1_L1.fastq",
+                ].join("\n") + "\n"
+
+                input      = samplesheet.toString()
+                input_type = "tagged_bam"
+                outdir     = "${outputDir}/results"
+            }
+        }
+
+        then {
+            assert workflow.failed
+            assert workflow.trace.tasks().size() == 0
+            assert (workflow.stdout + workflow.stderr).any { it.contains("required columns") && it.contains("--input_type tagged_bam") }
+        }
+
+    }
+
+    test("a sample listed twice in a tagged BAM samplesheet fails") {
+
+        when {
+            params {
+                def samplesheet = new File("${outputDir}/samplesheet.csv")
+                samplesheet.parentFile.mkdirs()
+                samplesheet.text = [
+                    "sample,bam",
+                    "S1,${baseDir}/tests/fixtures/synthetic/tagged/S1.bam",
+                    "S1,${baseDir}/tests/fixtures/synthetic/tagged/S1.bam",
+                ].join("\n") + "\n"
+
+                input      = samplesheet.toString()
+                input_type = "tagged_bam"
+                outdir     = "${outputDir}/results"
+            }
+        }
+
+        then {
+            assert workflow.failed
+            assert workflow.trace.tasks().size() == 0
+            assert (workflow.stdout + workflow.stderr).any { it.contains("S1 is listed more than once") }
+        }
+
+    }
+
+    test("fastq input without a minimap2 index fails") {
+
+        when {
+            params {
+                def samplesheet = new File("${outputDir}/samplesheet.csv")
+                samplesheet.parentFile.mkdirs()
+                samplesheet.text = [
+                    "sample,lane,fastq",
+                    "S1,L1,${baseDir}/tests/data/S1_L1.fastq",
+                ].join("\n") + "\n"
+
+                input           = samplesheet.toString()
+                outdir          = "${outputDir}/results"
+                minimap2_mindex = null
+            }
+        }
+
+        then {
+            assert workflow.failed
+            assert workflow.trace.tasks().size() == 0
+            assert (workflow.stdout + workflow.stderr).any { it.contains("--minimap2_mindex is required") }
+        }
+
+    }
+
     test("a retired parameter warns and the run continues") {
 
         when {

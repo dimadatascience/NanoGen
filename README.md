@@ -37,6 +37,16 @@ The pipeline expects an input file with header
 | sample1        | l1                | path2/fastq.gz |
 | .....          | .....             | .....          |
 
+### Starting from a tagged BAM
+
+With `--input_type tagged_bam` the run skips BLAZE, MERGE_READS, MINIMAP2 and FIXTAGS and starts at SPLIT_BAM. The samplesheet has one row per sample:
+
+| sample         | bam                  |
+| -------------- | -------------------- |
+| sample1        | /path2/sample1.bam   |
+| .....          | .....                |
+
+Each BAM holds one sample's reads aligned to `--minimap2_input_genome`, with the cell barcode in the `CB` tag and the UMI in the `UB` tag, as FIXTAGS emits it (`CB_UB.bam` in its work directory). It need not be sorted or indexed. `--minimap2_mindex` is not needed, and `blaze.log` is not written. Two runs from the same tagged BAM see identical reads, without BLAZE run-to-run noise.
 
 
 
@@ -82,10 +92,11 @@ params.outdir
 
 | Parameter | Default | Spec symbol | Meaning |
 | --------- | ------- | ----------- | ------- |
-| `--input` | — | — | Samplesheet CSV with columns sample, lane and fastq |
+| `--input` | — | — | Samplesheet CSV: sample, lane, fastq; or sample, bam with `--input_type tagged_bam` |
+| `--input_type` | `fastq` | — | `fastq`, or `tagged_bam` to start from tagged, aligned BAMs at SPLIT_BAM (see Input) |
 | `--outdir` | `results` | — | Directory where results are saved |
 | `--minimap2_input_genome` | — | — | Reference genome FASTA |
-| `--minimap2_mindex` | — | — | minimap2 index of the reference genome |
+| `--minimap2_mindex` | — | — | minimap2 index of the reference genome; required with `--input_type fastq` |
 | `--bedfile` | — | — | Tab-separated target file: chr, start, end, ref, alt, gene |
 | `--min_mapping_quality` | `20` | — | Minimum MAPQ for a read to enter UMI grouping |
 | `--min_reads` | `2` | n_min | Minimum usable reads supporting an allele to label a UMI cluster |

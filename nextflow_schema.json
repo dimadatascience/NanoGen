@@ -20,9 +20,20 @@
                     "format": "file-path",
                     "mimetype": "text/csv",
                     "pattern": "^\\S+\\.csv$",
-                    "description": "Samplesheet CSV with columns sample, lane and fastq.",
-                    "help_text": "One row per sample and lane, with a header row `sample,lane,fastq`. Fastq paths must be absolute. Not a spec symbol.",
+                    "description": "Samplesheet CSV: columns sample, lane and fastq, or sample and bam with input_type tagged_bam.",
+                    "help_text": "With `input_type` fastq: one row per sample and lane, with a header row `sample,lane,fastq`. With `input_type` tagged_bam: one row per sample, with a header row `sample,bam`. Paths must be absolute. Not a spec symbol.",
                     "fa_icon": "fas fa-file-csv"
+                },
+                "input_type": {
+                    "type": "string",
+                    "default": "fastq",
+                    "enum": [
+                        "fastq",
+                        "tagged_bam"
+                    ],
+                    "description": "What the samplesheet lists: FASTQs, or tagged BAMs that start the run at SPLIT_BAM.",
+                    "help_text": "`fastq` runs BLAZE, MERGE_READS, MINIMAP2 and FIXTAGS first. `tagged_bam` skips them: each BAM holds one sample's reads aligned to `minimap2_input_genome`, with CB and UB tags, as FIXTAGS emits it, and `minimap2_mindex` is not needed. Not a spec symbol.",
+                    "fa_icon": "fas fa-sign-in-alt"
                 },
                 "outdir": {
                     "type": "string",
@@ -41,7 +52,6 @@
             "description": "Reference genome, its minimap2 index and the target file.",
             "required": [
                 "minimap2_input_genome",
-                "minimap2_mindex",
                 "bedfile"
             ],
             "properties": {
@@ -57,7 +67,7 @@
                     "type": "string",
                     "format": "file-path",
                     "description": "minimap2 index of the reference genome.",
-                    "help_text": "A `.mmi` index built from `minimap2_input_genome`. Not a spec symbol.",
+                    "help_text": "A `.mmi` index built from `minimap2_input_genome`. Required with `input_type` fastq. Not a spec symbol.",
                     "fa_icon": "far fa-file-code"
                 },
                 "bedfile": {

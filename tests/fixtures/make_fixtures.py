@@ -6,6 +6,7 @@ Writes, under tests/fixtures/synthetic/:
     contig.fa, contig.fa.fai  one random contig with planted indel sites
     targets.bed               SNVs, a deletion, an insertion, a homopolymer indel
     cells/<CB>.bam            per-cell BAMs tagged CB/UB, as SPLIT_BAM emits them
+    tagged/S1.bam             every cell's reads in one BAM, as FIXTAGS emits it
 
 Every read is named <scenario>:<molecule>:<read>, so a test can pick out the
 records of one scenario. Reads match the contig exactly except for the planted
@@ -229,10 +230,11 @@ def build(outdir):
     contig = contig_sequence(rng)
     bed, oth = targets(contig, rng)
     outdir = Path(outdir)
-    cells_dir = outdir / "cells"
-    cells_dir.mkdir(parents=True, exist_ok=True)
-    for stale in cells_dir.glob("*.bam"):
-        stale.unlink()
+    cells_dir, tagged_dir = outdir / "cells", outdir / "tagged"
+    for d in (cells_dir, tagged_dir):
+        d.mkdir(parents=True, exist_ok=True)
+        for stale in d.glob("*.bam"):
+            stale.unlink()
 
     fasta = outdir / "contig.fa"
     lines = [contig[i:i + 60] for i in range(0, CONTIG_LEN, 60)]
@@ -258,6 +260,12 @@ def build(outdir):
         with pysam.AlignmentFile(str(cells_dir / f"{cell}.bam"), "wb", header=header) as f:
             for read in reads:
                 f.write(read)
+
+    sample_reads = sorted((r for reads in by_cell.values() for r in reads),
+                    key=lambda r: (r.reference_start, r.get_tag("CB"), r.query_name, r.flag))
+    with pysam.AlignmentFile(str(tagged_dir / "S1.bam"), "wb", header=header) as f:
+        for read in sample_reads:
+            f.write(read)
 
 
 def _text(path):

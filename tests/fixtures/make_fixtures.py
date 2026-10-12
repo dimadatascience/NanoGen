@@ -36,6 +36,7 @@ MIN_UMI_DIST = 5  # Levenshtein distance between unrelated molecules in a cell
 QUAL = 30
 LOW_QUAL = 5
 MAPQ = 60
+SECONDARY_OR_SUPPLEMENTARY = 0x900
 DEFAULT_OUTDIR = Path(__file__).resolve().parent / "synthetic"
 
 # Planted sequence (0-based start -> bases), so indel sites have a single,
@@ -60,7 +61,7 @@ SCENARIOS = (
     "subnmin",  # a REF molecule at SNV1 with 2 reads (< n_min = 3)
     "oth",  # a molecule at SNV1 carrying neither REF nor ALT
     "sec_supp",  # 2 primary ALT reads at SNV1 plus a secondary and a supplementary record
-    "del_k",  # one DEL molecule: 2 exact, 2 one base shorter, 1 one base longer
+    "del_k",  # one DEL molecule: 2 exact, 2 one base shorter, 1 one base longer, 1 starting 1 bp right
     "del_lowq",  # an exact DEL molecule whose anchor base has quality 5
     "ins",  # an INS molecule
     "hp_del",  # a homopolymer 1 bp deletion molecule
@@ -196,6 +197,7 @@ def molecules(contig, bed, oth, umis):
     yield CELL_SNV, "subnmin", "snv1", umis.new(CELL_SNV), ref_reads("SNV1", 2)
     yield CELL_SNV, "oth", "snv1", umis.new(CELL_SNV), snv_reads("SNV1", oth["SNV1"], 4)
     primary = snv_reads("SNV1", alt1, 2)
+    # Full copies of the primaries at MAPQ 60, so only the flag filter removes them
     extra = [dict(r, flag=f) for r, f in zip(snv_reads("SNV1", alt1, 2), (0x100, 0x800))]
     yield CELL_SNV, "sec_supp", "snv1", umis.new(CELL_SNV), primary + extra
 
@@ -210,11 +212,13 @@ def molecules(contig, bed, oth, umis):
     yield CELL_MIX, "wt", "hp", umis.new(CELL_MIX), ref_reads("HP", 4)
 
     # Cell with the deletion scenarios
-    alt = site["DEL"][2]
-    longer = alt + contig[anchor_of("DEL") + len(alt)]
+    anchor, alt = anchor_of("DEL"), site["DEL"][2]
+    longer = alt + contig[anchor + len(alt)]
+    shifted = "-" + contig[anchor + 2:anchor + 1 + len(alt)]  # same length, 1 bp right
     yield CELL_DEL, "wt", "del", umis.new(CELL_DEL), ref_reads("DEL", 4)
-    yield CELL_DEL, "del_k", "del", umis.new(CELL_DEL), indel_reads(
-        "DEL", [alt, alt, alt[:-1], alt[:-1], longer])
+    del_k = indel_reads("DEL", [alt, alt, alt[:-1], alt[:-1], longer])
+    del_k.append(dict(start=del_k[-1]["start"] + 3, indel=(anchor + 1, shifted)))
+    yield CELL_DEL, "del_k", "del", umis.new(CELL_DEL), del_k
     yield CELL_DEL, "del_lowq", "del", umis.new(CELL_DEL), indel_reads(
         "DEL", [alt] * 4, anchor_qual=LOW_QUAL)
 
@@ -244,7 +248,7 @@ def build(outdir):
         # Secondary and supplementary records reuse the names of the primary reads
         index = {0: 0, 1: 0}
         for spec in reads:
-            extra = bool(spec.get("flag", 0) & 0x900)
+            extra = bool(spec.get("flag", 0) & SECONDARY_OR_SUPPLEMENTARY)
             index[extra] += 1
             name = f"{scenario}:{molecule}:{index[extra]:02d}"
             by_cell.setdefault(cell, []).append(make_read(header, contig, name, cell, umi, **spec))

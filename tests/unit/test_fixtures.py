@@ -17,6 +17,7 @@ WINDOW = 100  # main's window width, the boundary the straddling molecule crosse
 
 
 def _levenshtein(a, b):
+    # Kept independent of make_fixtures.levenshtein, so the tests do not trust the generator
     prev = list(range(len(b) + 1))
     for i, x in enumerate(a, 1):
         cur = [i]
@@ -116,7 +117,8 @@ def test_bed_ref_matches_the_contig():
 
 def test_every_read_name_carries_a_known_scenario():
     names = {r.query_name.split(":")[0] for _, r in _records()}
-    assert names <= set(make_fixtures.SCENARIOS)
+    assert names == {"wt", "ld2_pair", "straddle", "subnmin", "oth", "sec_supp",
+                     "del_k", "del_lowq", "ins", "hp_del"}
     assert names == set(make_fixtures.SCENARIOS)
 
 
@@ -161,9 +163,13 @@ def test_straddle_is_one_molecule_crossing_a_100bp_window():
     assert all(_site_base(r, pos) for r in reads)
 
 
-def test_subnmin_cluster_has_fewer_than_n_min_reads():
+def test_subnmin_cluster_has_fewer_than_n_min_usable_reads():
+    _, pos, ref, _ = _targets()["SNV1"]
     reads = _scenario("subnmin")
-    assert list(_umis(reads).values()) == [2]
+    assert len(_umis(reads)) == 1
+    usable = [r for r in reads if _site_base(r, pos) and _site_base(r, pos)[1] >= 20]
+    assert len(usable) == 2  # n_min = 3
+    assert {_site_base(r, pos)[0] for r in usable} == {ref}
 
 
 def test_oth_cluster_carries_neither_ref_nor_alt():
@@ -178,9 +184,13 @@ def test_del_k_carries_deletions_within_one_bp_of_the_target_length():
     _, pos, _, alt = _targets()["DEL"]
     reads = _scenario("del_k")
     assert len(_umis(reads)) == 1
-    dels = {_indel_at(r, pos) for r in reads}
+    dels = {_indel_at(r, pos) for r in reads} - {None}
     assert alt in dels
     assert {len(d) - len(alt) for d in dels} == {-1, 0, 1}
+    # One read deletes the same length 1 bp right of the target: the ±k bundle case
+    shifted = "-" + _contig()[pos:pos + len(alt) - 1]
+    moved = [r for r in reads if _indel_at(r, pos + 1) == shifted]
+    assert len(moved) == 1 and _indel_at(moved[0], pos) is None
 
 
 def test_del_lowq_deletions_have_a_low_quality_anchor():
@@ -251,6 +261,7 @@ def test_readcount_reports_the_shifted_deletions_at_the_anchor(tmp_path):
     assert counts[alt] == 2 + 4  # del_k exact + del_lowq
     assert counts[alt[:-1]] == 2
     assert counts[alt + _contig()[pos + len(alt) - 2]] == 1
+    assert counts[_contig()[pos - 1]] == 4 + 1  # wt + the 1 bp right-shifted read
 
 
 def test_readcount_base_quality_filter_drops_the_low_quality_anchor(tmp_path):
@@ -263,7 +274,7 @@ def test_readcount_reports_insertion_and_homopolymer_deletion(tmp_path):
     targets = _targets()
     for scenario, gene in [("ins", "INS"), ("hp_del", "HP")]:
         _, pos, _, alt = targets[gene]
-        assert _readcount(tmp_path, _cell_of(scenario), 0)[pos][alt] == len(_scenario(scenario))
+        assert _readcount(tmp_path, _cell_of(scenario), 0)[pos][alt] == 4
 
 
 # --- drift check -------------------------------------------------------------

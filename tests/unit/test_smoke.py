@@ -8,7 +8,7 @@ def test_consensus_on_umi_labels_a_ref_cluster_wt():
     line = "{A:5:60.00 C:0:0.00}"
 
     counts = count_consensus.consensus_on_umi(
-        line, ref="A", alt="C", min_fraction=0.6, min_consensus=2
+        line, ref="A", alt="C", min_fraction=0.6, min_reads=2
     )
 
-    assert counts == {"WT": 1, "MUT": 0, "OTH": 0}
+    assert (counts["WT"], counts["MUT"], counts["OTH"]) == (1, 0, 0)

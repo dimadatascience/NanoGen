@@ -28,6 +28,7 @@ nextflow_pipeline {
             // CONSENSUS x3 cells, COLLAPSE, GENOTYPING
             assert workflow.trace.succeeded().size() == 11
             assert path("${outputDir}/results/S1/S1.csv").exists()
+            assert path("${outputDir}/results/S1/S1_targets.csv").exists()
             assert path("${outputDir}/results/S1/logs/genotype.log").exists()
             assert path("${outputDir}/results/S1/logs/blaze.log").exists()
             assert path("${outputDir}/results/S1/logs/target.log").exists()
@@ -60,6 +61,7 @@ nextflow_pipeline {
             assert workflow.trace.succeeded().collect { it.name.tokenize(' ')[0].tokenize(':')[-1] }.toSet() ==
                 ["SPLIT_BAM", "CONSENSUS", "COLLAPSE", "GENOTYPING"].toSet()
             assert path("${outputDir}/results/S1/S1.csv").exists()
+            assert path("${outputDir}/results/S1/S1_targets.csv").exists()
             assert path("${outputDir}/results/S1/logs/genotype.log").exists()
             assert path("${outputDir}/results/S1/logs/target.log").exists()
             assert !path("${outputDir}/results/S1/logs/blaze.log").exists()

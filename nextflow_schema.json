@@ -145,6 +145,14 @@
                     "description": "Lower bound on the per-target error rate used by the caller.",
                     "help_text": "Spec symbol ε (epsilon): P_s = max(q_hat, ε), so a target with no observed error is not modelled as error-free. Units: probability, in (0, 1).",
                     "fa_icon": "fas fa-level-down-alt"
+                },
+                "min_mut_umis": {
+                    "type": "integer",
+                    "default": 1,
+                    "minimum": 1,
+                    "description": "Minimum number of MUT UMIs for a MUT call.",
+                    "help_text": "Spec symbol m_min. A cell × target is called MUT only if m >= m_min and p < 0.1; cells with 0 < m < m_min are undetermined. Set 2 to check that results do not rest on single-UMI MUT calls. Units: UMIs.",
+                    "fa_icon": "fas fa-sort-numeric-up"
                 }
             }
         },

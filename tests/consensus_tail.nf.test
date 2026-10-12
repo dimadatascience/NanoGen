@@ -28,6 +28,7 @@ nextflow_workflow {
             assert snapshot(
                 path(workflow.out.counts.get(0).get(1)).linesGzip,
                 path(workflow.out.genotypes.get(0).get(1)).readLines(),
+                path(workflow.out.targets.get(0).get(1)).readLines(),
                 path(workflow.out.gt_log.get(0).get(1)).readLines(),
             ).match()
         }

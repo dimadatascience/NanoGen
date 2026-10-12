@@ -20,22 +20,30 @@
                 "chrF,1602,1602,T,-T,HP,0,0,0,AAACCCAAGAAACCCA"
             ],
             [
-                "cell,target_id,gene,type,WT,MUT,OTH,err,p,genotype",
-                "AAACCCAAGAAACACT,chrF:301:A>G,SNV1,SNV,2,3,0,0.0,9.998500060000004e-12,MUT",
-                "AAACCCAAGAAACACT,chrF:701:A>G,SNV2,SNV,0,0,0,0.0,,",
-                "AAACCCAAGAAACACT,chrF:1002:T>-TTA,DEL,INDEL,0,0,0,0.0,,",
-                "AAACCCAAGAAACACT,chrF:1301:A>+GTC,INS,INDEL,0,0,0,0.0,,",
-                "AAACCCAAGAAACACT,chrF:1602:T>-T,HP,INDEL,0,0,0,0.0,,",
-                "AAACCCAAGAAACCAT,chrF:301:A>G,SNV1,SNV,0,0,0,0.0,,",
-                "AAACCCAAGAAACCAT,chrF:701:A>G,SNV2,SNV,1,2,0,0.0,2.9998e-08,MUT",
-                "AAACCCAAGAAACCAT,chrF:1002:T>-TTA,DEL,INDEL,0,0,0,0.0,,",
-                "AAACCCAAGAAACCAT,chrF:1301:A>+GTC,INS,INDEL,1,1,0,0.0,0.00019999000000000004,MUT",
-                "AAACCCAAGAAACCAT,chrF:1602:T>-T,HP,INDEL,1,1,0,0.0,0.00019999000000000004,MUT",
-                "AAACCCAAGAAACCCA,chrF:301:A>G,SNV1,SNV,0,0,0,0.0,,",
-                "AAACCCAAGAAACCCA,chrF:701:A>G,SNV2,SNV,0,0,0,0.0,,",
-                "AAACCCAAGAAACCCA,chrF:1002:T>-TTA,DEL,INDEL,1,1,0,0.0,0.00019999000000000004,MUT",
-                "AAACCCAAGAAACCCA,chrF:1301:A>+GTC,INS,INDEL,0,0,0,0.0,,",
-                "AAACCCAAGAAACCCA,chrF:1602:T>-T,HP,INDEL,0,0,0,0.0,,"
+                "cell,target_id,gene,type,WT,MUT,OTH,P_s,p,genotype,het_detect_lb",
+                "AAACCCAAGAAACACT,chrF:301:A>G,SNV1,SNV,2,3,0,0.0001,9.998500060000004e-12,MUT,",
+                "AAACCCAAGAAACACT,chrF:701:A>G,SNV2,SNV,0,0,0,0.0001,,,",
+                "AAACCCAAGAAACACT,chrF:1002:T>-TTA,DEL,INDEL,0,0,0,0.0001,,,",
+                "AAACCCAAGAAACACT,chrF:1301:A>+GTC,INS,INDEL,0,0,0,0.0001,,,",
+                "AAACCCAAGAAACACT,chrF:1602:T>-T,HP,INDEL,0,0,0,0.0001,,,",
+                "AAACCCAAGAAACCAT,chrF:301:A>G,SNV1,SNV,0,0,0,0.0001,,,",
+                "AAACCCAAGAAACCAT,chrF:701:A>G,SNV2,SNV,1,2,0,0.0001,2.9998e-08,MUT,",
+                "AAACCCAAGAAACCAT,chrF:1002:T>-TTA,DEL,INDEL,0,0,0,0.0001,,,",
+                "AAACCCAAGAAACCAT,chrF:1301:A>+GTC,INS,INDEL,1,1,0,0.0001,0.00019999000000000004,MUT,",
+                "AAACCCAAGAAACCAT,chrF:1602:T>-T,HP,INDEL,1,1,0,0.0001,0.00019999000000000004,MUT,",
+                "AAACCCAAGAAACCCA,chrF:301:A>G,SNV1,SNV,0,0,0,0.0001,,,",
+                "AAACCCAAGAAACCCA,chrF:701:A>G,SNV2,SNV,0,0,0,0.0001,,,",
+                "AAACCCAAGAAACCCA,chrF:1002:T>-TTA,DEL,INDEL,1,1,0,0.0001,0.00019999000000000004,MUT,",
+                "AAACCCAAGAAACCCA,chrF:1301:A>+GTC,INS,INDEL,0,0,0,0.0001,,,",
+                "AAACCCAAGAAACCCA,chrF:1602:T>-T,HP,INDEL,0,0,0,0.0001,,,"
+            ],
+            [
+                "target_id,gene,type,N,w,d,q_hat,eps,P_s,floor_applied",
+                "chrF:301:A>G,SNV1,SNV,5,0,2,0.0,0.0001,0.0001,True",
+                "chrF:701:A>G,SNV2,SNV,3,0,2,0.0,0.0001,0.0001,True",
+                "chrF:1002:T>-TTA,DEL,INDEL,2,0,1,0.0,0.0001,0.0001,True",
+                "chrF:1301:A>+GTC,INS,INDEL,2,0,1,0.0,0.0001,0.0001,True",
+                "chrF:1602:T>-T,HP,INDEL,2,0,1,0.0,0.0001,0.0001,True"
             ],
             [
                 "Total number of cells: 3",
@@ -49,6 +57,6 @@
             "nf-test": "0.9.2",
             "nextflow": "25.04.4"
         },
-        "timestamp": "2026-10-12T14:37:21.272624"
+        "timestamp": "2026-10-12T17:28:45.377454"
     }
 }

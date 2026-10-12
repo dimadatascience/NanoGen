@@ -34,8 +34,8 @@ nextflow_pipeline {
             def genotypes = path("${outputDir}/results/S1/S1.csv").readLines()
             def header = genotypes[0].split(",", -1).toList()
             def cell = header.indexOf("cell")
-            // Rows come in cell completion order: drop the row index and sort
-            def rows = genotypes.drop(1).collect { it.split(",", -1).drop(1).join(",") }.sort()
+            // Rows come in cell completion order: sort them
+            def rows = genotypes.drop(1).sort()
             assert genotypes.drop(1).collect { it.split(",", -1)[cell] }.toSet() ==
                 ["AAACCCAAGAAACACT", "AAACCCAAGAAACCAT", "AAACCCAAGAAACCCA"].toSet()
 

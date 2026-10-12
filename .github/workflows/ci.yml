@@ -1,0 +1,62 @@
+# Unit tests (pytest, in the pinned image) and pipeline tests (nf-test, stub
+# runs with -profile docker).
+#
+# The unit job reads the image from params.container in nextflow.config, so the
+# digest is declared in one place.
+
+name: ci
+
+on:
+  pull_request:
+    branches: [genotype-v2, main]
+  push:
+    branches: [genotype-v2]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  NXF_VER: "25.04.4"
+  NFT_VER: "0.9.2"
+
+jobs:
+  unit:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Read pinned image from nextflow.config
+        id: image
+        run: |
+          image=$(sed -n "s/^ *container *= *'\(.*\)'.*/\1/p" nextflow.config)
+          test "$(printf '%s\n' "$image" | grep -c .)" -eq 1
+          echo "image=$image" >> "$GITHUB_OUTPUT"
+
+      - name: pytest
+        run: |
+          docker run --rm -u "$(id -u):$(id -g)" \
+            -v "$PWD:/work" -w /work \
+            "${{ steps.image.outputs.image }}" \
+            pytest -p no:cacheprovider
+
+  nf-test:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: nf-core/setup-nextflow@v2
+        with:
+          version: ${{ env.NXF_VER }}
+
+      - uses: nf-core/setup-nf-test@v1
+        with:
+          version: ${{ env.NFT_VER }}
+
+      - name: nf-test
+        run: nf-test test --profile docker --ci --verbose

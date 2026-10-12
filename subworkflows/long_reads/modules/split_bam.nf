@@ -44,9 +44,10 @@ process SPLIT_BAM {
 
     stub:
     """
-    python ${baseDir}/bin/long_reads/random_mock.py \
-    touch target.log
+    # Three mock cells (tests/main.nf.test counts on three CONSENSUS tasks)
     rm -f ${bam}
+    touch AAAAAAAAAAAAAAAAAA.bam CCCCCCCCCCCCCCCCCC.bam GGGGGGGGGGGGGGGGGG.bam
+    touch target.log
     """
 
 }

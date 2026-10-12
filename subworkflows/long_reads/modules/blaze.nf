@@ -31,6 +31,7 @@ process BLAZE {
   stub:
   """
   touch ${sample_name}_${lane}_matched_reads.fastq.gz
+  touch blaze.log
   """
 
 }

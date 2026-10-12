@@ -166,3 +166,7 @@ cython_debug/
 ./scratch/
 ./.nextflow/
 
+
+# nf-test
+.nf-test/
+.nf-test.log

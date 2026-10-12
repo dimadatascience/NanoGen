@@ -1,6 +1,6 @@
 # Spec tests for consensus labelling (rule A, equation (1), on usable reads) and
 # the sub-n_min / labelled / discarded partition. The indel tests still pin
-# main's allele matching and shortcuts until the tolerant indel ALT ticket
+# the legacy allele matching and shortcuts until the tolerant indel ALT ticket
 # replaces them.
 
 import itertools
@@ -169,7 +169,7 @@ def test_every_cluster_is_exactly_one_of_sub_n_min_labelled_or_discarded(
             assert cls == cc.DISCARDED
 
 
-# Indel targets: main's allele matching and shortcuts are kept until the
+# Indel targets: the legacy allele matching and shortcuts are kept until the
 # tolerant indel ALT ticket replaces them; rule A and the partition apply.
 
 

@@ -131,7 +131,7 @@ def allele_counts(entries, ref, alt):
     '+' entries are skipped because their reads are already in their base count.
     Base quality is filtered upstream, by bam-readcount -b.
 
-    At an indel target, main's matching is kept until tolerant indel ALT
+    At an indel target, the legacy matching is kept until tolerant indel ALT
     replaces it: REF is the reference base, ALT the exact alt (len(alt) <= 2)
     or the largest entry overlapping it by substring, OTH every other non-N entry.
 
@@ -158,7 +158,7 @@ def allele_counts(entries, ref, alt):
 
 
 def _indel_allele_counts(entries, ref, alt):
-    """main's indel matching; see allele_counts."""
+    """Legacy indel matching; see allele_counts."""
     r = a = o = 0
     for base, read_count in entries:
         if base == ref:
@@ -189,7 +189,7 @@ def consensus_label(r, a, o, min_fraction=0.6, min_reads=3):
     """
     usable = r + a + o
     for label, count in (("WT", r), ("MUT", a), ("OTH", o)):
-        if count >= min_reads and count / usable >= min_fraction:
+        if count and count >= min_reads and count / usable >= min_fraction:
             return label
     return None
 
@@ -200,7 +200,7 @@ def classify_counts(r, a, o, alt, min_fraction=0.6, min_reads=3):
 
     Parameters:
         r, a, o (int): REF, ALT and OTH usable reads (see allele_counts).
-        alt (str): The alternative allele, for main's indel shortcuts.
+        alt (str): The alternative allele, for the legacy indel shortcuts.
         min_fraction (float, optional): f_min. Defaults to 0.6.
         min_reads (int, optional): n_min. Defaults to 3.
 
@@ -210,7 +210,7 @@ def classify_counts(r, a, o, alt, min_fraction=0.6, min_reads=3):
     """
     if r + a + o < min_reads:
         return SUBNMIN
-    # main's indel shortcuts, kept until tolerant indel ALT removes them
+    # Legacy indel shortcuts, kept until tolerant indel ALT removes them
     if len(alt) == 2 and a > 2 and a / (r + a) > 0.25:
         return "MUT"
     if len(alt) > 3 and a > 3:

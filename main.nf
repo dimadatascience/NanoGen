@@ -63,7 +63,7 @@ def check_samplesheet(csv_file, requiredColumns) {
         while ((line = reader.readLine()) != null) {
             numberOfLinesInSampleSheet++
             if (numberOfLinesInSampleSheet == 1){
-                def headerColumns = line.tokenize(',')*.trim()
+                def headerColumns = line
                 if (!requiredColumns.every { headerColumns.contains(it) }) {
                     log.error "Header missing or CSV file does not contain all of the required columns in the header: ${requiredColumns} (--input_type ${params.input_type})"
                     System.exit(1)

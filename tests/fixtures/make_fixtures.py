@@ -261,10 +261,10 @@ def build(outdir):
             for read in reads:
                 f.write(read)
 
-    sample = sorted((r for reads in by_cell.values() for r in reads),
+    sample_reads = sorted((r for reads in by_cell.values() for r in reads),
                     key=lambda r: (r.reference_start, r.get_tag("CB"), r.query_name, r.flag))
     with pysam.AlignmentFile(str(tagged_dir / "S1.bam"), "wb", header=header) as f:
-        for read in sample:
+        for read in sample_reads:
             f.write(read)
 
 

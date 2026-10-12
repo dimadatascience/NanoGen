@@ -14,10 +14,19 @@ import pytest
 REPO = Path(__file__).resolve().parents[2]
 SCHEMA = json.loads((REPO / "nextflow_schema.json").read_text())
 
-RETIRED = ["window_width", "min_dist_umi_collapsing", "baseline_error", "min_base_quality"]
+# Retired names and their migration messages are declared once, in WorkflowMain
+RETIRED = re.findall(
+    r"^\s+(\w+)\s*:\s*'",
+    re.search(
+        r"RETIRED_PARAMS = \[\n(.*?)\n\s*\]",
+        (REPO / "lib" / "WorkflowMain.groovy").read_text(),
+        re.DOTALL,
+    ).group(1),
+    re.MULTILINE,
+)
 GROUPS = ["UMI grouping", "Consensus", "Genotyping", "BLAZE"]
 DRAFT_07_TYPES = {"string", "number", "integer", "boolean", "object", "array", "null"}
-NO_DEFAULT = "—"
+EMPTY_CELL = "—"
 
 
 def _config_params():
@@ -26,7 +35,7 @@ def _config_params():
     block = re.search(r"^params\s*\{\n(.*?)^\}", text, re.MULTILINE | re.DOTALL).group(1)
     params = {}
     for line in block.splitlines():
-        line = line.split("//")[0].strip()
+        line = re.sub(r"(^|\s)//.*", "", line).strip()
         if not line:
             continue
         name, value = (s.strip() for s in line.split("=", 1))
@@ -101,6 +110,17 @@ def test_schema_param_is_well_formed(name):
             assert type(prop[bound]) in (int, float)
 
 
+@pytest.mark.parametrize("name", sorted(PARAMS))
+def test_help_text_names_spec_symbol_and_units(name):
+    # Generic options are pipeline plumbing, outside the model
+    if name in SCHEMA["definitions"]["generic_options"]["properties"]:
+        return
+    help_text = PARAMS[name]["help_text"]
+    assert "spec symbol" in help_text.lower() or "Spec:" in help_text
+    if PARAMS[name]["type"] in ("number", "integer"):
+        assert "Units:" in help_text
+
+
 def test_schema_has_the_spec_groups():
     titles = [group["title"] for group in SCHEMA["definitions"].values()]
     for title in GROUPS:
@@ -160,11 +180,15 @@ def test_readme_table_lists_the_visible_params():
 def test_readme_row_matches_schema(name):
     default, symbol, meaning = _readme_table()[name]
     prop = PARAMS[name]
-    expected = f"`{prop['default']}`" if "default" in prop else NO_DEFAULT
+    expected = f"`{prop['default']}`" if "default" in prop else EMPTY_CELL
     assert default == expected
-    if symbol != NO_DEFAULT:
+    if symbol != EMPTY_CELL:
         assert symbol in prop["help_text"]
     assert meaning
+
+
+def test_retired_names_are_read_from_workflow_main():
+    assert RETIRED == ["window_width", "min_dist_umi_collapsing", "baseline_error", "min_base_quality"]
 
 
 @pytest.mark.parametrize(

@@ -31,7 +31,7 @@ def _parse_args():
         "--error_floor",
         type=float,
         default=1e-4,
-        help="Error floor (epsilon): lower bound on the per-site error rate.",
+        help="Error floor (epsilon): lower bound on the per-target error rate.",
     )
 
     args = parser.parse_args()

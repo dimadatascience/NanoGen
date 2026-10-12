@@ -17,7 +17,7 @@ process CONSENSUS {
     script:
     """ 
     # Generate cell-target-site-UMI consensus allele counts. The window (-w) and
-    # UMI distance (-d) are fixed at their former defaults until cell x target
+    # UMI distance (-d) are fixed at the former params' defaults until cell x target
     # grouping replaces umi_tools and the windows.
     bash ${baseDir}/bin/long_reads/make_consensus.sh \
     -i ${bam} \

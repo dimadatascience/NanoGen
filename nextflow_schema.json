@@ -125,7 +125,7 @@
             "title": "Genotyping",
             "type": "object",
             "fa_icon": "fas fa-dna",
-            "description": "How cells are called MUT, WT or undetermined from their UMI labels.",
+            "description": "How each cell × target is called MUT, WT or NA from its consensus labels.",
             "properties": {
                 "error_floor": {
                     "type": "number",

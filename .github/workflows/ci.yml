@@ -1,5 +1,5 @@
-# Unit tests (pytest, in the pinned image) and pipeline tests (nf-test, stub
-# runs with -profile docker).
+# Unit tests (fixture drift check and pytest, in the pinned image) and pipeline
+# tests (nf-test, stub runs with -profile docker).
 #
 # The unit job reads the image from params.container in nextflow.config, so the
 # digest is declared in one place.
@@ -32,6 +32,13 @@ jobs:
           image=$(sed -n "s/^ *container *= *'\(.*\)'.*/\1/p" nextflow.config)
           test "$(printf '%s\n' "$image" | grep -c .)" -eq 1
           echo "image=$image" >> "$GITHUB_OUTPUT"
+
+      - name: Fixture drift check
+        run: |
+          docker run --rm -u "$(id -u):$(id -g)" \
+            -v "$PWD:/work" -w /work \
+            "${{ steps.image.outputs.image }}" \
+            python tests/fixtures/make_fixtures.py --check
 
       - name: pytest
         run: |

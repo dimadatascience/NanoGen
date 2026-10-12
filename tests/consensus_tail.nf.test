@@ -57,10 +57,10 @@ nextflow_workflow {
                 "chrF,1602,1602,T,-T,HP,0,0,0,0,0,${del}",
             ].collect { it.toString() }
 
-            // Characterisation snapshot of the calls: the caller is replaced by
-            // the per-target error ticket.
+            // Snapshot of the calls, the per-target error table and the log.
             assert snapshot(
                 path(workflow.out.genotypes.get(0).get(1)).readLines(),
+                path(workflow.out.targets.get(0).get(1)).readLines(),
                 path(workflow.out.gt_log.get(0).get(1)).readLines(),
             ).match()
         }

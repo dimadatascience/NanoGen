@@ -58,6 +58,7 @@ The output structure:
 params.outdir
 |-- sample
 |   |-- sample.csv
+|   |-- sample_targets.csv
 |   |-- logs
 |       |-- blaze.log
 |       |-- genotype.log
@@ -76,9 +77,25 @@ params.outdir
 | `WT` | Number of UMIs with consensus label WT |
 | `MUT` | Number of UMIs with consensus label MUT |
 | `OTH` | Number of UMIs with consensus label OTH (third allele) |
-| `err` | Experimental error rate used for the call |
-| `p` | Negative binomial probability of the WT UMIs given the MUT UMIs under the null hypothesis that the cell is WT |
-| `genotype` | Call: `MUT`, `WT`, or empty (NA) when undetermined |
+| `P_s` | Error rate of the target used for the call, as in `sample_targets.csv` |
+| `p` | Binomial upper tail P(X ≥ MUT), X ~ Bin(MUT + WT, `P_s`): the probability of at least this many MUT UMIs if the cell is WT. Empty (NaN) when MUT + WT = 0 |
+| `genotype` | Call: `MUT` if MUT ≥ `min_mut_umis` and p < 0.1; `WT` if MUT = 0 and WT ≥ 2, or MUT ≥ `min_mut_umis` and p ≥ 0.9; empty (NA) when undetermined |
+| `het_detect_lb` | For WT calls, 1 − 0.5^WT: a lower bound on the probability that a heterozygous cell would have shown a MUT UMI. Empty otherwise |
+
+- sample_targets.csv contains the error estimate of each target, pooled over cells, one row per target, written without an index column:
+
+| Column | Meaning |
+| ------ | ------- |
+| `target_id` | Target, as in `sample.csv` |
+| `gene` | Gene name from the BED |
+| `type` | `SNV` or `INDEL` |
+| `N` | Labelled (WT, MUT or OTH) UMIs over all cells; discarded and sub-n_min clusters are not counted |
+| `w` | OTH UMIs over all cells |
+| `d` | Error channels: 2 for an SNV, 1 for an indel |
+| `q_hat` | Estimated error rate w / (d · N); empty (NaN) when N = 0 |
+| `eps` | Error floor, `--error_floor` |
+| `P_s` | Error rate used for the calls, max(`q_hat`, `eps`) |
+| `floor_applied` | `True` when `P_s` is the floor, i.e. `q_hat` < `eps` or N = 0 |
 
 - blaze.log: contains the statistics of the experiments, e.g. number of reads, high quality reads, number of cells and reads in polyT
 
@@ -103,6 +120,7 @@ params.outdir
 | `--min_fraction` | `0.6` | f_min | Minimum fraction of usable reads supporting an allele to label a UMI cluster, in (0.5, 1] |
 | `--snv_min_base_quality` | `20` | — | Minimum base quality (Phred) for a read to be usable at an SNV target |
 | `--error_floor` | `0.0001` | ε | Lower bound on the per-target error rate, in (0, 1) |
+| `--min_mut_umis` | `1` | m_min | Minimum number of MUT UMIs for a MUT call; set `2` to check results don't rest on single-UMI MUT calls |
 
 Hidden parameters, including the BLAZE options `--blaze_expect_cells` and `--blaze_edit_distance`, are listed by `--help --show_hidden_params`.
 

@@ -15,7 +15,7 @@
                 "AAACCCAAGAAACCAT,chrF:1602:T>-T,HP,INDEL,1,1,0,0.0001,0.00019999000000000004,MUT,",
                 "AAACCCAAGAAACCCA,chrF:301:A>G,SNV1,SNV,0,0,0,0.1,,,",
                 "AAACCCAAGAAACCCA,chrF:701:A>G,SNV2,SNV,0,0,0,0.0001,,,",
-                "AAACCCAAGAAACCCA,chrF:1002:T>-TTA,DEL,INDEL,1,0,0,0.0001,1.0,,",
+                "AAACCCAAGAAACCCA,chrF:1002:T>-TTA,DEL,INDEL,1,1,0,0.0001,0.00019999000000000004,MUT,",
                 "AAACCCAAGAAACCCA,chrF:1301:A>+GTC,INS,INDEL,0,0,0,0.0001,,,",
                 "AAACCCAAGAAACCCA,chrF:1602:T>-T,HP,INDEL,0,0,0,0.0001,,,"
             ],
@@ -23,13 +23,13 @@
                 "target_id,gene,type,N,w,d,q_hat,eps,P_s,floor_applied",
                 "chrF:301:A>G,SNV1,SNV,5,1,2,0.1,0.0001,0.1,False",
                 "chrF:701:A>G,SNV2,SNV,3,0,2,0.0,0.0001,0.0001,True",
-                "chrF:1002:T>-TTA,DEL,INDEL,1,0,1,0.0,0.0001,0.0001,True",
+                "chrF:1002:T>-TTA,DEL,INDEL,2,0,1,0.0,0.0001,0.0001,True",
                 "chrF:1301:A>+GTC,INS,INDEL,2,0,1,0.0,0.0001,0.0001,True",
                 "chrF:1602:T>-T,HP,INDEL,2,0,1,0.0,0.0001,0.0001,True"
             ],
             [
                 "Total number of cells: 3",
-                "Total number of UMIs: 13",
+                "Total number of UMIs: 14",
                 "Median UMI per cell: 5.0",
                 "Median genes covered per cell: 1.0",
                 "Fraction of cells with UMIs: 1.0"
@@ -39,6 +39,6 @@
             "nf-test": "0.9.2",
             "nextflow": "25.04.4"
         },
-        "timestamp": "2026-10-12T21:08:32.706048"
+        "timestamp": "2026-10-12T21:14:18.997042"
     }
 }

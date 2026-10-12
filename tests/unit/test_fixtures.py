@@ -118,7 +118,7 @@ def test_bed_ref_matches_the_contig():
 def test_every_read_name_carries_a_known_scenario():
     names = {r.query_name.split(":")[0] for _, r in _records()}
     assert names == {"wt", "ld2_pair", "straddle", "subnmin", "oth", "sec_supp",
-                     "del_k", "del_lowq", "ins", "hp_del"}
+                     "del_k", "del_lowq", "ins", "hp_del", "snv_lowq"}
     assert names == set(make_fixtures.SCENARIOS)
 
 
@@ -210,6 +210,18 @@ def test_del_lowq_deletions_have_a_low_quality_anchor():
         assert base == _contig()[pos - 2] and qual < 20
 
 
+def test_snv_lowq_alt_bases_have_low_quality():
+    _, pos, _, alt = _targets()["SNV2"]
+    reads = _scenario("snv_lowq")
+    assert len(_umis(reads)) == 1 and len(reads) >= 3
+    assert {_site_base(r, pos)[0] for r in reads} == {alt}
+    assert all(_site_base(r, pos)[1] < 20 for r in reads)
+    # Alone at SNV2 in its cell, so the SNV base-quality filter leaves it no reads
+    assert {r.get_tag("CB") for r in reads}.isdisjoint(
+        {r.get_tag("CB") for r in _scenario("straddle") + _scenario("wt")
+         if _site_base(r, pos)})
+
+
 def test_ins_and_hp_del_carry_their_target_indel():
     targets = _targets()
     for scenario, gene in [("ins", "INS"), ("hp_del", "HP")]:
@@ -277,6 +289,13 @@ def test_readcount_base_quality_filter_drops_the_low_quality_anchor(tmp_path):
     _, pos, _, alt = _targets()["DEL"]
     cell = _cell_of("del_lowq")
     assert _readcount(tmp_path, cell, 0)[pos][alt] - _readcount(tmp_path, cell, 20)[pos][alt] == 4
+
+
+def test_readcount_base_quality_filter_drops_the_low_quality_snv_base(tmp_path):
+    _, pos, _, alt = _targets()["SNV2"]
+    cell = _cell_of("snv_lowq")
+    assert _readcount(tmp_path, cell, 0)[pos][alt] == 4
+    assert _readcount(tmp_path, cell, 20)[pos][alt] == 0
 
 
 def test_readcount_reports_insertion_and_homopolymer_deletion(tmp_path):

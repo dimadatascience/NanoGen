@@ -32,8 +32,9 @@ nextflow_workflow {
             // are MUT; oth (T) is OTH, tested on its own count; subnmin is a
             // sub-n_min cluster with 2 usable reads.
             // DEL (AAACCCAAGAAACCCA): del_k is discarded under main's indel
-            // matching, and del_lowq is sub-n_min with no usable read, its anchor
-            // base being under -b 20.
+            // matching, and del_lowq is MUT, its quality-5 anchor kept by the
+            // unfiltered indel pass. snv_lowq is a sub-n_min cluster at SNV2 with no
+            // usable read, its bases being under -b 20.
             def header = "chr,start,end,ref,alt,gene,WT,MUT,OTH,subnmin_umis,subnmin_reads,barcode"
             def snv  = "AAACCCAAGAAACACT"
             def mix  = "AAACCCAAGAAACCAT"
@@ -51,8 +52,8 @@ nextflow_workflow {
                 "chrF,1301,1301,A,+GTC,INS,1,1,0,0,0,${mix}",
                 "chrF,1602,1602,T,-T,HP,1,1,0,0,0,${mix}",
                 "chrF,301,301,A,G,SNV1,0,0,0,0,0,${del}",
-                "chrF,701,701,A,G,SNV2,0,0,0,0,0,${del}",
-                "chrF,1002,1002,T,-TTA,DEL,1,0,0,1,0,${del}",
+                "chrF,701,701,A,G,SNV2,0,0,0,1,0,${del}",
+                "chrF,1002,1002,T,-TTA,DEL,1,1,0,0,0,${del}",
                 "chrF,1301,1301,A,+GTC,INS,0,0,0,0,0,${del}",
                 "chrF,1602,1602,T,-T,HP,0,0,0,0,0,${del}",
             ].collect { it.toString() }
@@ -63,6 +64,78 @@ nextflow_workflow {
                 path(workflow.out.targets.get(0).get(1)).readLines(),
                 path(workflow.out.gt_log.get(0).get(1)).readLines(),
             ).match()
+        }
+
+    }
+
+    test("indel targets have no base-quality filter, SNV targets keep it") {
+
+        when {
+            params {
+                bedfile                 = "${baseDir}/tests/fixtures/synthetic/targets.bed"
+                minimap2_input_genome   = "${baseDir}/tests/fixtures/synthetic/contig.fa"
+                outdir                  = "${outputDir}/results"
+            }
+            workflow {
+                """
+                input[0] = Channel.fromPath('${baseDir}/tests/fixtures/synthetic/cells/*.bam')
+                    .map { bam -> ['S1', bam.baseName, bam] }
+                """
+            }
+        }
+
+        then {
+            assert workflow.success
+            def lines = path(workflow.out.counts.get(0).get(1)).linesGzip
+            def header = lines[0].split(",").toList()
+            def rows = lines.drop(1).collect { [header, it.split(",", -1).toList()].transpose().collectEntries() }
+            def counts = { gene, cell ->
+                rows.find { it.gene == gene && it.barcode == cell }.subMap(["WT", "MUT", "OTH"])
+            }
+
+            // wt is WT and del_k MUT; del_lowq is MUT only if its quality-5 anchor is kept
+            assert counts("DEL", "AAACCCAAGAAACCCA") == [WT: "1", MUT: "2", OTH: "0"]
+            // snv_lowq's ALT bases have quality 5, so they are still filtered out
+            assert counts("SNV2", "AAACCCAAGAAACCCA") == [WT: "0", MUT: "0", OTH: "0"]
+        }
+
+    }
+
+    test("SNV-only BED") {
+
+        when {
+            params {
+                def bed = new File("${outputDir}/targets_snv.bed")
+                bed.parentFile.mkdirs()
+                bed.text = new File("${baseDir}/tests/fixtures/synthetic/targets.bed").readLines()
+                    .findAll { !(it.split("\t")[4] =~ /^[+-]/) }
+                    .collect { it + "\n" }.join("")
+
+                bedfile                 = bed.toString()
+                minimap2_input_genome   = "${baseDir}/tests/fixtures/synthetic/contig.fa"
+                outdir                  = "${outputDir}/results"
+            }
+            workflow {
+                """
+                input[0] = Channel.fromPath('${baseDir}/tests/fixtures/synthetic/cells/*.bam')
+                    .map { bam -> ['S1', bam.baseName, bam] }
+                """
+            }
+        }
+
+        then {
+            assert workflow.success
+            // The SNV rows of the single-pass (-b snv_min_base_quality) run, at the
+            // default n_min = 2: subnmin's 2-read cluster is WT at SNV1
+            assert path(workflow.out.counts.get(0).get(1)).linesGzip == [
+                "chr,start,end,ref,alt,gene,WT,MUT,OTH,subnmin_umis,subnmin_reads,barcode",
+                "chrF,301,301,A,G,SNV1,2,3,1,0,0,AAACCCAAGAAACACT",
+                "chrF,701,701,A,G,SNV2,0,0,0,0,0,AAACCCAAGAAACACT",
+                "chrF,301,301,A,G,SNV1,0,0,0,0,0,AAACCCAAGAAACCAT",
+                "chrF,701,701,A,G,SNV2,1,2,0,0,0,AAACCCAAGAAACCAT",
+                "chrF,301,301,A,G,SNV1,0,0,0,0,0,AAACCCAAGAAACCCA",
+                "chrF,701,701,A,G,SNV2,0,0,0,1,0,AAACCCAAGAAACCCA",
+            ]
         }
 
     }

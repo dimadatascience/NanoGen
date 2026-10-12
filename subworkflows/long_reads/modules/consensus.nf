@@ -20,6 +20,8 @@ process CONSENSUS {
     # UMI distance (-d) are fixed at the former params' defaults until cell x target
     # grouping replaces umi_tools and the windows. Every cluster is counted (-c 1):
     # count_consensus.py applies n_min to usable reads and reports sub-n_min clusters.
+    # bam-readcount runs once per target type: -b snv_min_base_quality at SNVs, no
+    # base-quality filter at indels.
     bash ${baseDir}/bin/long_reads/make_consensus.sh \
     -i ${bam} \
     -b ${params.bedfile} \

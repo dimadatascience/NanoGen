@@ -312,3 +312,26 @@ def test_count_targets_does_not_mutate_its_input():
     cc.count_targets(t, [], min_fraction=0.6, min_reads=2)
 
     assert "WT" not in t.columns
+
+
+def test_count_targets_scores_snv_alts_on_the_first_line_and_indel_alts_on_the_last():
+    # A site with both an SNV and an indel target has one line per bam-readcount
+    # pass, the SNV pass (base-quality filtered) before the indel pass (unfiltered)
+    t = pd.DataFrame(
+        [["chr1", 300, 300, "G", "C", "S"], ["chr1", 300, 300, "G", "-G", "D"]],
+        columns=["chr", "start", "end", "ref", "alt", "gene"],
+    )
+    lines = [
+        # Low-quality C bases and deletion anchors are dropped
+        line("chr1", 300, "G", block(("G", 4)), block(), block()),
+        line("chr1", 300, "G", block(("G", 4)), block(("C", 4)), block(("-G", 4))),
+    ]
+
+    table = cc.count_targets(t, lines, min_fraction=0.6, min_reads=2)
+
+    # At the SNV, the two clusters emptied by the filter are sub-n_min; at the
+    # indel, the C cluster is OTH under rule A
+    assert table[["WT", "MUT", "OTH", "subnmin_umis", "subnmin_reads"]].values.tolist() == [
+        [1, 0, 0, 2, 0],
+        [1, 1, 1, 0, 0],
+    ]

@@ -102,7 +102,7 @@ def test_snv_other_bases_are_pooled_in_the_fraction():
     assert label("A", "C", ("A", 3), ("G", 2), ("T", 2)) is None
 
 
-def test_snv_oth_majority_is_never_labelled_oth():
+def test_snv_oth_majority_gets_no_label():
     # The count tested is max(ref, alt), so an OTH-dominated cluster is dropped
     assert label("A", "C", ("A", 0), ("G", 9)) is None
 

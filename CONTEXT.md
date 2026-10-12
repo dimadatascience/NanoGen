@@ -39,3 +39,9 @@ _Avoid_: small UMI (cluster size alone does not decide it)
 **Discarded cluster**:
 A UMI cluster with at least n_min usable reads where no allele reaches both n_min and f_min. Every cluster covering a target is exactly one of: sub-n_min, labelled or discarded.
 _Avoid_: ambiguous UMI
+
+### Output
+
+**Target ID**:
+The join key of a target in `<sample>.csv`: `chr:start:ref>alt`, with the 1-based bam-readcount position and `ref` and `alt` as written in the BED (e.g. `chr4:54733160:GAT>-GAT`).
+_Avoid_: variant ID, site (a site can carry several targets with different alts)

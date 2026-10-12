@@ -111,7 +111,8 @@ def call_targets(counts, error_floor=1e-4):
     Make the call of every cell x target.
 
     Parameters:
-        counts (pd.DataFrame): Consensus counts with columns [MUT, WT, OTH, barcode].
+        counts (pd.DataFrame): Collapsed consensus counts with columns
+                              [chr, start, ref, alt, gene, WT, MUT, OTH, barcode].
         error_floor (float, optional): Floor for the error rate. Defaults to 1e-4.
 
     Returns:
@@ -134,16 +135,27 @@ def target_id(chrom, start, ref, alt):
     """
     Identify a target as chr:start:ref>alt.
 
-    start is the 1-based bam-readcount position, and ref and alt are as written
-    in the BED, e.g. chr4:54733160:GAT>-GAT.
+    Parameters:
+        chrom (str): Chromosome.
+        start (int): 1-based bam-readcount position, i.e. the BED start column.
+        ref (str): Reference allele as written in the BED.
+        alt (str): Alternative allele as written in the BED.
+
+    Returns:
+        str: The target ID, e.g. chr4:54733160:GAT>-GAT.
     """
     return f"{chrom}:{start}:{ref}>{alt}"
 
 
-def variant_type(ref, alt):
+def variant_type(alt):
     """
-    Type of a target: 'INDEL' for a bam-readcount indel alt (+ins or -del),
-    'SNV' otherwise.
+    Type of a target from its alt.
+
+    Parameters:
+        alt (str): Alternative allele in bam-readcount notation.
+
+    Returns:
+        str: 'INDEL' for an insertion (+) or deletion (-) alt, 'SNV' otherwise.
     """
     return "INDEL" if alt.startswith(("+", "-")) else "SNV"
 
@@ -153,19 +165,25 @@ OUTPUT_COLUMNS = [
 ]
 
 
-def output_table(barcodes):
+def output_table(called):
     """
-    Shape the called table (see call_targets) as <sample>.csv.
+    Shape the called table as <sample>.csv.
+
+    Parameters:
+        called (pd.DataFrame): Output of call_targets.
 
     Returns:
         pd.DataFrame: One row per cell x target with OUTPUT_COLUMNS.
     """
-    out = barcodes.copy()
-    out["target_id"] = [
-        target_id(*t) for t in out[["chr", "start", "ref", "alt"]].itertuples(index=False)
+    table = called.copy()
+    table["target_id"] = [
+        target_id(chrom, start, ref, alt)
+        for chrom, start, ref, alt in zip(
+            table["chr"], table["start"], table["ref"], table["alt"]
+        )
     ]
-    out["type"] = [variant_type(r, a) for r, a in zip(out["ref"], out["alt"])]
-    return out[OUTPUT_COLUMNS].reset_index(drop=True)
+    table["type"] = [variant_type(alt) for alt in table["alt"]]
+    return table[OUTPUT_COLUMNS].reset_index(drop=True)
 
 
 def summarise(barcodes):
@@ -193,12 +211,12 @@ def main():
 
     args = _parse_args()
 
-    barcodes = output_table(call_targets(pd.read_csv(args.input), args.error_floor))
-    barcodes.to_csv(args.output, index=False)
+    table = output_table(call_targets(pd.read_csv(args.input), args.error_floor))
+    table.to_csv(args.output, index=False)
 
     # collect statistics
     with open("genotype.log", "w") as f:
-        for line in summarise(barcodes):
+        for line in summarise(table):
             print(line, file=f)
 
 

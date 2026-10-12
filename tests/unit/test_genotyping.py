@@ -1,6 +1,6 @@
-# Characterisation tests: they pin current main behaviour of genotyping.py,
-# defects included, so the pure-function refactor provably changes nothing.
-# Later tickets replace them with spec tests.
+# Characterisation tests pin current main behaviour of genotyping.py, defects
+# included; later tickets replace them with spec tests. The output contract
+# tests at the end are spec tests for <sample>.csv (#32).
 
 import math
 import subprocess
@@ -176,6 +176,7 @@ def collapsed(*rows):
     return table
 
 
+# Spelled out rather than read from gt.OUTPUT_COLUMNS, so the contract is pinned
 OUTPUT_COLUMNS = [
     "cell", "target_id", "gene", "type", "WT", "MUT", "OTH", "err", "p", "genotype",
 ]
@@ -187,17 +188,11 @@ def test_target_id_is_chr_position_ref_and_alt_as_in_the_bed():
 
 
 @pytest.mark.parametrize(
-    "ref, alt, expected",
-    [
-        ("A", "G", "SNV"),
-        ("T", "-T", "INDEL"),
-        ("T", "-TTA", "INDEL"),
-        ("A", "+GTC", "INDEL"),
-        ("GAT", "-GAT", "INDEL"),
-    ],
+    "alt, expected",
+    [("G", "SNV"), ("-T", "INDEL"), ("-TTA", "INDEL"), ("+GTC", "INDEL")],
 )
-def test_type_is_indel_for_bam_readcount_indel_alts_else_snv(ref, alt, expected):
-    assert gt.variant_type(ref, alt) == expected
+def test_type_is_indel_for_bam_readcount_indel_alts_else_snv(alt, expected):
+    assert gt.variant_type(alt) == expected
 
 
 def test_output_table_has_the_v2_columns_one_row_per_cell_and_target():

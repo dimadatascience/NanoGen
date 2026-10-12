@@ -63,6 +63,27 @@ params.outdir
 
 - target.log: contains the enrichment efficiency
 
+## ⚙️ Parameters
+
+`nextflow_schema.json` is the source of truth for parameters. They are validated before any process runs, so a mistyped value fails in seconds. The visible parameters are:
+
+| Parameter | Default | Spec symbol | Meaning |
+| --------- | ------- | ----------- | ------- |
+| `--input` | — | — | Samplesheet CSV with columns sample, lane and fastq |
+| `--outdir` | `results` | — | Directory where results are saved |
+| `--minimap2_input_genome` | — | — | Reference genome FASTA |
+| `--minimap2_mindex` | — | — | minimap2 index of the reference genome |
+| `--bedfile` | — | — | Tab-separated target file: chr, start, end, ref, alt, gene |
+| `--min_mapping_quality` | `20` | — | Minimum MAPQ for a read to enter UMI grouping |
+| `--min_reads` | `2` | n_min | Minimum usable reads supporting an allele to label a UMI cluster |
+| `--min_fraction` | `0.6` | f_min | Minimum fraction of usable reads supporting an allele to label a UMI cluster, in (0.5, 1] |
+| `--snv_min_base_quality` | `20` | — | Minimum base quality (Phred) for a read to be usable at an SNV target |
+| `--error_floor` | `0.0001` | ε | Lower bound on the per-target error rate, in (0, 1) |
+
+Hidden parameters, including the BLAZE options `--blaze_expect_cells` and `--blaze_edit_distance`, are listed by `--help --show_hidden_params`.
+
+Retired parameters still run but log a warning and are ignored: `--baseline_error` is now `--error_floor`, `--min_base_quality` is now `--snv_min_base_quality`, and `--window_width` and `--min_dist_umi_collapsing` are no longer parameters.
+
 ## 🚀 Running the Pipeline
 
 ```bash

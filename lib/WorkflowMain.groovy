@@ -5,6 +5,28 @@
 class WorkflowMain {
 
     //
+    // Retired parameters and their migration messages. Passing one warns and
+    // the run continues; the value is ignored.
+    //
+    public static final Map RETIRED_PARAMS = [
+        window_width            : 'UMIs are no longer grouped in user-set genomic windows.',
+        min_dist_umi_collapsing : 'the UMI clustering distance is no longer user-set.',
+        baseline_error          : 'renamed; use --error_floor instead.',
+        min_base_quality        : 'renamed; use --snv_min_base_quality instead (it applies to SNV targets only).',
+    ]
+
+    //
+    // Warn about retired parameters with a migration message
+    //
+    public static void warnRetiredParams(params, log) {
+        RETIRED_PARAMS.each { name, migration ->
+            if (params.containsKey(name)) {
+                log.warn "--${name} is retired and its value is ignored: ${migration}"
+            }
+        }
+    }
+
+    //
     // Citation string for pipeline
     //
     public static String citation(workflow) {
@@ -63,9 +85,12 @@ class WorkflowMain {
         // Print parameter summary log to screen
         log.info paramsSummaryLog(workflow, params, log)
 
+        // Retired parameters warn here, so validation doesn't also report them as unexpected
+        warnRetiredParams(params, log)
+
         // Validate workflow parameters via the JSON schema
         if (params.validate_params) {
-            NfcoreSchema.validateParameters(workflow, params, log)
+            NfcoreSchema.validateParameters(workflow, params, log, RETIRED_PARAMS.keySet() as List)
         }
 
         // Check that a -profile or Nextflow config has been provided to run the pipeline

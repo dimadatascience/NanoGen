@@ -16,16 +16,18 @@ process CONSENSUS {
 
     script:
     """ 
-    # Generate cell-target-site-UMI consensus allele counts
+    # Generate cell-target-site-UMI consensus allele counts. The window (-w) and
+    # UMI distance (-d) are fixed at their former defaults until cell x target
+    # grouping replaces umi_tools and the windows.
     bash ${baseDir}/bin/long_reads/make_consensus.sh \
     -i ${bam} \
     -b ${params.bedfile} \
     -r ${params.minimap2_input_genome} \
     -q ${params.min_mapping_quality} \
     -c ${params.min_reads} \
-    -w ${params.window_width} \
-    -m ${params.min_base_quality} \
-    -d ${params.min_dist_umi_collapsing}
+    -w 100 \
+    -m ${params.snv_min_base_quality} \
+    -d 1
 
 
     # Extract counts from bam-readcount output!!!!

@@ -25,7 +25,7 @@ class NfcoreSchema {
     // whether the given parameters adhere to the specifications
     //
     /* groovylint-disable-next-line UnusedPrivateMethodParameter */
-    public static void validateParameters(workflow, params, log, schema_filename='nextflow_schema.json') {
+    public static void validateParameters(workflow, params, log, ignore_params=[], schema_filename='nextflow_schema.json') {
         def has_error = false
         //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~//
         // Check for nextflow core params and unexpected params
@@ -121,7 +121,7 @@ class NfcoreSchema {
                 has_error = true
             }
             // unexpected params
-            def params_ignore = params.schema_ignore_params.split(',') + 'schema_ignore_params'
+            def params_ignore = params.schema_ignore_params.split(',') + 'schema_ignore_params' + ignore_params
             def expectedParamsLowerCase = expectedParams.collect{ it.replace("-", "").toLowerCase() }
             def specifiedParamLowerCase = specifiedParam.replace("-", "").toLowerCase()
             def isCamelCaseBug = (specifiedParam.contains("-") && !expectedParams.contains(specifiedParam) && expectedParamsLowerCase.contains(specifiedParamLowerCase))

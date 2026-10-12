@@ -21,6 +21,7 @@ workflow CONSENSUS_TAIL {
     emit:
         counts    = COLLAPSE.out.allele_counts
         genotypes = GENOTYPING.out.genotypes
+        targets   = GENOTYPING.out.targets
         gt_log    = GENOTYPING.out.log
 
 }

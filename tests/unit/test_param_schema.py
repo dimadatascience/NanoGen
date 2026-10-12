@@ -157,6 +157,7 @@ def test_config_default_is_within_schema_bounds(name):
         ("min_fraction", {"exclusiveMinimum": 0.5, "maximum": 1}),
         ("error_floor", {"exclusiveMinimum": 0, "exclusiveMaximum": 1}),
         ("min_reads", {"minimum": 1}),
+        ("min_mut_umis", {"minimum": 1}),
         ("snv_min_base_quality", {"minimum": 0}),
         ("min_mapping_quality", {"minimum": 0}),
         ("blaze_expect_cells", {"minimum": 1}),

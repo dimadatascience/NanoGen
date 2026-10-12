@@ -6,21 +6,19 @@ nextflow_workflow {
 
     // Characterisation test: the snapshot pins current behaviour. It is not
     // hand-specified; later tickets replace it with spec assertions.
-    test("two cells, SNV and deletion targets") {
+    test("synthetic fixture cells") {
 
         when {
             params {
-                bedfile                 = "${baseDir}/tests/data/consensus_tail/targets.bed"
-                // ref.fa.fai is committed alongside, so bam-readcount never writes one
-                minimap2_input_genome   = "${baseDir}/tests/data/consensus_tail/ref.fa"
+                bedfile                 = "${baseDir}/tests/fixtures/synthetic/targets.bed"
+                // contig.fa.fai is committed alongside, so bam-readcount never writes one
+                minimap2_input_genome   = "${baseDir}/tests/fixtures/synthetic/contig.fa"
                 outdir                  = "${outputDir}/results"
             }
             workflow {
                 """
-                input[0] = Channel.of(
-                    ['S1', 'AAACCCAAGAAACACT', file('${baseDir}/tests/data/consensus_tail/AAACCCAAGAAACACT.sam')],
-                    ['S1', 'AAACCCAAGAAACCAT', file('${baseDir}/tests/data/consensus_tail/AAACCCAAGAAACCAT.sam')],
-                )
+                input[0] = Channel.fromPath('${baseDir}/tests/fixtures/synthetic/cells/*.bam')
+                    .map { bam -> ['S1', bam.baseName, bam] }
                 """
             }
         }

@@ -54,9 +54,9 @@ def test_cell_error_of_a_cell_without_umis_is_zero():
 # Caller
 
 
-def call(mut, wt, err, baseline_error=1e-4):
+def call(mut, wt, err, error_floor=1e-4):
     p, called = gt.call(
-        np.array([mut]), np.array([wt]), np.array([err]), baseline_error
+        np.array([mut]), np.array([wt]), np.array([err]), error_floor
     )
     return p[0], called[0]
 
@@ -104,12 +104,12 @@ def test_p_between_0_1_and_0_9_is_na():
     assert is_na(called)
 
 
-def test_err_below_the_baseline_is_raised_to_it():
-    assert call(1, 2, 0.0, baseline_error=0.5)[0] == pytest.approx(1 - 0.5**3)
+def test_err_below_the_error_floor_is_raised_to_it():
+    assert call(1, 2, 0.0, error_floor=0.5)[0] == pytest.approx(1 - 0.5**3)
 
 
-def test_err_above_the_baseline_is_used():
-    assert call(1, 2, 0.5, baseline_error=1e-4)[0] == pytest.approx(1 - 0.5**3)
+def test_err_above_the_error_floor_is_used():
+    assert call(1, 2, 0.5, error_floor=1e-4)[0] == pytest.approx(1 - 0.5**3)
 
 
 # Output table and log
@@ -118,7 +118,7 @@ def test_err_above_the_baseline_is_used():
 def test_call_table_adds_err_p_and_genotype_per_row():
     table = gt.call_targets(
         counts(("c1", "G1", 1, 2, 0), ("c1", "G2", 0, 3, 0), ("c2", "G1", 0, 1, 0)),
-        baseline_error=1e-4,
+        error_floor=1e-4,
     )
 
     assert table.columns.tolist() == [
@@ -132,7 +132,7 @@ def test_call_table_adds_err_p_and_genotype_per_row():
 def test_call_targets_does_not_mutate_its_input():
     c = counts(("c1", "G1", 1, 2, 0))
 
-    gt.call_targets(c, baseline_error=1e-4)
+    gt.call_targets(c, error_floor=1e-4)
 
     assert c.columns.tolist() == ["barcode", "gene", "MUT", "WT", "MIS"]
 
@@ -146,7 +146,7 @@ def test_summary_reports_cells_umis_and_genes():
             ("c2", "G2", 0, 1, 0),
             ("c3", "G1", 0, 0, 0),
         ),
-        baseline_error=1e-4,
+        error_floor=1e-4,
     )
 
     # UMIs per cell: c1 = 7, c2 = 1, c3 = 0; genes covered: 2, 1, 0

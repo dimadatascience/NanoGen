@@ -1,0 +1,51 @@
+# Genotyping spec: checks that the committed PDF moves with its LaTeX source
+# and that the source compiles (latexmk in a pinned TeX Live image).
+#
+# The CI build is a check only; contributors rebuild genotyping.pdf locally and
+# commit it together with genotyping.tex.
+
+name: spec
+
+on:
+  pull_request:
+    branches: [genotype-v2, main]
+    paths: ["docs/genotyping/**"]
+  push:
+    branches: [genotype-v2]
+    paths: ["docs/genotyping/**"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  TEX_IMAGE: "texlive/texlive:TL2024-historic@sha256:fb0fed9b911b4836314f8041d27d7ff75dd1544d12ee359a2a91f765609c072d"
+
+jobs:
+  spec:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: PDF changed with the source
+        if: github.event_name == 'pull_request'
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          changed=$(git diff --name-only "$BASE...$HEAD" -- docs/genotyping)
+          if grep -qx docs/genotyping/genotyping.tex <<< "$changed" \
+            && ! grep -qx docs/genotyping/genotyping.pdf <<< "$changed"; then
+            echo "::error file=docs/genotyping/genotyping.tex::genotyping.tex changed but genotyping.pdf did not; rebuild it with latexmk and commit both"
+            exit 1
+          fi
+
+      - name: latexmk
+        run: |
+          docker run --rm -u "$(id -u):$(id -g)" -e HOME=/tmp \
+            -v "$PWD:/work" -w /work/docs/genotyping \
+            "$TEX_IMAGE" \
+            latexmk -pdf -interaction=nonstopmode -halt-on-error \
+              -outdir=/tmp/spec genotyping.tex

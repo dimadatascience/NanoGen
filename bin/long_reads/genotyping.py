@@ -27,10 +27,10 @@ def _parse_args():
     )
     parser.add_argument(
         "-b",
-        "--baseline_error",
+        "--error_floor",
         type=float,
         default=1e-4,
-        help="Baseline error accounting for any form of errors. For instance contamination.",
+        help="Error floor (epsilon): lower bound on the per-target error rate.",
     )
 
     args = parser.parse_args()
@@ -65,7 +65,7 @@ def estimate_cell_error(barcodes):
     return barcodes
 
 
-def call(mut, wt, experimental_error, baseline_error=1e-4):
+def call(mut, wt, experimental_error, error_floor=1e-4):
     """
     Make calls from MUT and WT consensus counts.
 
@@ -73,13 +73,13 @@ def call(mut, wt, experimental_error, baseline_error=1e-4):
         mut (np.ndarray): MUT consensus counts.
         wt (np.ndarray): WT consensus counts.
         experimental_error (np.ndarray): Error rate of each count pair.
-        baseline_error (float, optional): Floor for the error rate. Defaults to 1e-4.
+        error_floor (float, optional): Floor for the error rate. Defaults to 1e-4.
 
     Returns:
         Tuple[np.ndarray, np.ndarray]: The negative binomial p of each pair, and
                                        its call: 'WT', 'MUT' or NaN.
     """
-    experimental_error = np.maximum(experimental_error, baseline_error)
+    experimental_error = np.maximum(experimental_error, error_floor)
 
     p = nbinom.cdf(k=wt, n=mut, p=experimental_error)
 
@@ -106,13 +106,13 @@ def call(mut, wt, experimental_error, baseline_error=1e-4):
     return p, calls
 
 
-def call_targets(counts, baseline_error=1e-4):
+def call_targets(counts, error_floor=1e-4):
     """
     Make the call of every cell x target.
 
     Parameters:
         counts (pd.DataFrame): Consensus counts with columns [MUT, WT, MIS, barcode].
-        baseline_error (float, optional): Floor for the error rate. Defaults to 1e-4.
+        error_floor (float, optional): Floor for the error rate. Defaults to 1e-4.
 
     Returns:
         pd.DataFrame: counts with 'barcode' renamed 'cell', and 'err', 'p' and
@@ -123,7 +123,7 @@ def call_targets(counts, baseline_error=1e-4):
         barcodes["MUT"].values,
         barcodes["WT"].values,
         barcodes["err"].values,
-        baseline_error,
+        error_floor,
     )
     barcodes["p"] = p
     barcodes["genotype"] = calls
@@ -155,7 +155,7 @@ def main():
 
     args = _parse_args()
 
-    barcodes = call_targets(pd.read_csv(args.input), args.baseline_error)
+    barcodes = call_targets(pd.read_csv(args.input), args.error_floor)
     barcodes.to_csv(args.output)
 
     # collect statistics

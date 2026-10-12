@@ -1,0 +1,157 @@
+\documentclass[11pt]{article}
+\usepackage[a4paper,margin=2.8cm]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\usepackage{enumitem}
+\usepackage[hidelinks]{hyperref}
+\setlist{itemsep=2pt}
+
+\title{Genotyping SCM-seq}
+\author{Yinxiu Zhan}
+\date{February 2024 \\ \small Revised September 2026; amended October 2026 for NanoGen genotype-v2}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+\noindent\textbf{Context}: SCM-seq protocol: targeted enrichment of cDNA from PCR-amplified 10x scRNA-seq libraries, sequenced with Oxford Nanopore long reads. The goal is to assess the mutation status of single cells at specific genomic positions (targets). This revision rewrites the error model without the heterozygosity assumption, replaces the negative binomial with the equivalent binomial formulation, fixes the summation index of the tail probability, aligns the thresholds with the NanoGen implementation, and documents the known limitations of the current calling rule. The October 2026 amendment states the UMI grouping rule, the treatment of indel targets and the reported limitation quantities implemented by NanoGen genotype-v2.
+\end{abstract}
+
+\section{UMI consensus}
+
+Reads are assigned to cells (CB) and molecules (UMI) and aligned to the reference. Only primary alignments with mapping quality $\geq 20$ are used; secondary and supplementary records are ignored.
+
+\paragraph{Grouping.} Reads are bundled per cell $\times$ target, with no position or window term. A read belongs to the bundle of an SNV target if its alignment covers the site, and to the bundle of an indel target if its reference span, deletions included, overlaps the target $\pm \delta$ bases, where $\delta=1$ is the indel tolerance also used to match alleles below. Within a bundle, let $n_u$ be the number of reads carrying the raw UMI sequence $u$ and $d_L(u,v)$ the Levenshtein distance between two UMIs. UMI $v$ is merged into UMI $u$ if
+\begin{equation*}
+d_L(u,v) \leq 2 \quad\text{and}\quad \bigl(\, n_u \geq 2n_v - 1 \ \ \text{or}\ \ (n_v \leq 3 \text{ and } n_u \geq n_v) \,\bigr).
+\end{equation*}
+Clusters grow downhill from the most abundant UMI; ties are broken by $n_u$, then by UMI sequence. The allele at the target site is never used to decide a merge. Each resulting cluster is one molecule.
+
+\paragraph{Alleles.} For each UMI cluster covering target $i$ we count the reads carrying the reference allele ($r$), the alternative allele ($a$) and any other allele ($o$); reads with an undetermined base (N) are not counted. At an SNV target, only reads with base quality $\geq 20$ and no deletion over the site are counted. At an indel target, reads are counted with no base-quality filter, and the alternative allele is matched tolerantly: $a$ is the sum of the reads carrying an indel of the same type (deletion or insertion) as the target, whose length differs from the target's by at most $\delta$ bases and whose sequence agrees with the target's over their shared part. Reads carrying an insertion at the anchor base are removed from $r$, so an insertion is never counted as both reference and alternative. Every other read is counted in $o$.
+
+\paragraph{Labels.} The reads counted in $r+a+o$ are the usable reads of the cluster. A cluster with fewer than $n_{\min}=3$ usable reads is not used for genotyping; the number of such clusters and of their reads is reported. Every other cluster is assigned a consensus label as follows:
+\begin{equation}
+\text{label} =
+\begin{cases}
+\text{WT}  & \text{if } r \geq n_{\min} \text{ and } r/(r+a+o) \geq f_{\min},\\
+\text{MUT} & \text{if } a \geq n_{\min} \text{ and } a/(r+a+o) \geq f_{\min},\\
+\text{OTH} & \text{if } o \geq n_{\min} \text{ and } o/(r+a+o) \geq f_{\min},\\
+\text{discarded} & \text{otherwise,}
+\end{cases}
+\end{equation}
+with $f_{\min}=0.6$. Any $f_{\min} > 0.5$ makes the label unique, since at most one allele can hold more than half of the usable reads, and $0.6$ keeps more UMIs than a stricter value at Nanopore error rates. The same rule applies to SNV and indel targets. For each cell and target this gives the number of WT, MUT and OTH (third-allele) consensus UMIs.
+
+\paragraph{Correction.} In the February 2024 implementation, the third-allele class could never be assigned. The consensus condition was tested only on $\max(r,a)$, so a UMI whose majority allele was ``other'' could never reach $f_{\min}$. As a result the experimental error below was always estimated as zero and replaced by the baseline floor. The OTH class must be tested on $o$ itself, as written above. The same $f_{\min}$ rule applies to indel alleles; alternative-allele-specific thresholds lower than $f_{\min}$ bias UMI labels towards MUT.
+
+\section{Estimation of experimental error}
+
+Consider target $i$ with reference allele A and mutated allele T (SNV). Let $B$ be the true allele of a molecule and $\tilde B$ the consensus allele. We assume that every substitution $X \to Y$ ($X\neq Y$) occurs with the same conditional probability
+\begin{equation}
+q = P(\tilde B = Y \mid B = X), \qquad X \neq Y .
+\end{equation}
+A true A can be read as C or G with probability $2q$, and so can a true T. Hence the expected fraction of UMIs showing a third allele (C or G) is $2q$ \emph{regardless of the proportion of WT and mutated molecules}; no assumption on the zygosity of the cells is needed. If $N_i$ is the number of labelled (WT, MUT or OTH) consensus UMIs covering target $i$, pooled over all cells, with discarded clusters and clusters below $n_{\min}$ excluded, and $w_i$ the number of OTH UMIs,
+\begin{equation}
+\hat q_i = \frac{w_i}{2N_i}.
+\end{equation}
+At an SNV target, the probability that a WT molecule is read as mutated (and vice versa) is
+\begin{equation}
+err_i(wt \to mut) = err_i(mut \to wt) = \hat q_i = \frac{w_i}{2N_i},
+\end{equation}
+and the total error rate is $3\hat q_i$. This is the same result as Eq.~(4) of the original version, obtained without assuming $P(B=A)=P(B=T)=1/2$.
+
+\paragraph{Indel targets.} An indel has no such symmetry: its OTH class mixes substitutions at the anchor or deleted bases with indels that do not match the target, and none of them mirrors the WT$\to$MUT error. The OTH fraction is therefore used as a generic consensus-noise proxy, without the factor 2:
+\begin{equation}
+\hat q_i = \frac{w_i}{N_i} \qquad \text{(indel targets)},
+\end{equation}
+which is the conservative choice.
+
+To avoid a zero estimate at sparsely covered or error-free targets, we use a floor $\varepsilon$ for all targets:
+\begin{equation}
+P_{s,i} = \max(\hat q_i,\ \varepsilon), \qquad \varepsilon = 10^{-4}.
+\end{equation}
+No minimum $N_i$ is required: the floor only raises $P_{s,i}$, so low coverage can only make calls more conservative.
+
+\paragraph{Remarks.}
+\begin{itemize}
+\item The error is site-specific, so it is estimated per target and pooled over cells. A per-cell estimate pooled over targets has very few UMIs per cell and mixes sites with different error profiles.
+\item Assuming a uniform $q$ is a simplification. Transitions (A$\leftrightarrow$G, C$\leftrightarrow$T) are more frequent than transversions, and Nanopore errors depend on sequence context (e.g.\ homopolymers). For a transversion mutation such as A$\to$T, the estimate uses two transition channels (A$\to$G, T$\to$C) and is therefore conservative. For a transition mutation it may underestimate the relevant error.
+\item At homopolymer and tandem-repeat indel targets, length errors can leak alternative-like reads into WT UMIs, which the OTH-based estimate cannot see; this leakage is monitored per target by a diagnostic, and no empirical floor is applied unless the diagnostic shows it.
+\end{itemize}
+
+\section{Genotyping mutated cells}
+
+For a cell at target $i$, let $m$ be the number of MUT UMIs, $k$ the number of WT UMIs and $N=m+k$. Under the null hypothesis that the cell is WT, every mutated UMI is due to experimental error, and since $N$ is fixed by the observation,
+\begin{equation}
+m \sim \text{Binomial}(N, P_{s,i}).
+\end{equation}
+The probability of observing at least $m$ mutated UMIs by chance is the upper tail
+\begin{equation}
+p = P(X \geq m) = 1 - \sum_{j=0}^{m-1} \binom{N}{j} P_{s,i}^{\,j} (1-P_{s,i})^{N-j}.
+\end{equation}
+
+\paragraph{Correction.} The original version modelled $m$ with a negative binomial and summed its pmf from $j=1$. The binomial is the correct model because sequencing does not stop at the $m$-th mutated UMI. The two formulations give the same tail probability: the negative binomial CDF of the number of failures $k$ before $m$ successes satisfies
+\begin{equation}
+P_{\mathrm{NB}}(K \leq k;\ m, P_s) = P_{\mathrm{Bin}}(X \geq m;\ m+k, P_s),
+\end{equation}
+\emph{provided the sum starts at $j=0$}. Starting at $j=1$ omits the event of zero WT UMIs; for a cell with $N=m$ (only mutated UMIs) the sum is empty and $p=0$. The implementation computes the binomial upper tail from $j=0$.
+
+\subsection*{Decision rule}
+Let $m_{\min}$ be the minimum number of MUT UMIs required for a MUT call ($m_{\min}=1$ by default).
+\begin{itemize}
+\item \textbf{MUT}: $m \geq m_{\min}$ and $p < 0.1$.
+\item \textbf{WT}: $m = 0$ and $k \geq 2$, or $p \geq 0.9$.
+\item \textbf{Undetermined}: all other cells, including $N=0$, $m=0$ with $k<2$, $0 < m < m_{\min}$, and $0.1 \leq p < 0.9$.
+\end{itemize}
+The thresholds (0.1 and 0.9) are those used in the NanoGen implementation; the original version stated 0.05 and 0.95. At the default $m_{\min}=1$ the rule is unchanged from the September 2026 version.
+
+\section{Behaviour and limitations of the current rule}
+
+The floor $\varepsilon=10^{-4}$ was chosen to maximise the number of genotyped cells. With this value, a single mutated UMI is significant unless the cell has more than about $10^3$ WT UMIs (Table~\ref{tab:p}). In practice, at the default $m_{\min}=1$, the rule therefore reduces to: \emph{MUT if at least one mutated UMI, WT if no mutated UMI and at least two WT UMIs}.
+
+\begin{table}[h]
+\centering
+\begin{tabular}{rrcc}
+\toprule
+$m$ & $k$ & $p$ ($P_s=10^{-4}$) & call \\
+\midrule
+1 & 1    & 0.0002 & MUT \\
+1 & 10   & 0.0011 & MUT \\
+1 & 100  & 0.010  & MUT \\
+1 & 1000 & 0.095  & MUT \\
+1 & 5000 & 0.39   & undetermined \\
+\bottomrule
+\end{tabular}
+\caption{Upper-tail probability for a single mutated UMI at the baseline error ($m_{\min}=1$).}
+\label{tab:p}
+\end{table}
+
+The following limitations should be considered when interpreting genotype--phenotype results:
+\begin{enumerate}
+\item \textbf{Contamination is not modelled.} Ambient RNA, PCR chimeras and barcode swapping generate mutated UMIs in WT cells at a rate proportional to the bulk variant allele frequency, typically well above $10^{-4}$. MUT calls supported by a single UMI are the most exposed; their number is reported for each target, and the robustness of key results can be checked by requiring $m_{\min}=2$.
+\item \textbf{WT sensitivity at low coverage.} A heterozygous cell shows only WT UMIs with probability $\geq 0.5^{k}$, e.g.\ 25\% for $k=2$ and 6\% for $k=4$, and more with allelic dropout or allelic imbalance. WT calls with few UMIs are therefore uncertain; $1-0.5^{k}$, a lower bound on the probability of detecting a heterozygous cell, is reported for each WT call.
+\item \textbf{UMI grouping with Nanopore reads.} Grouping per cell $\times$ target with no windows removes the double counting of molecules across genomic windows. Residual effects remain: UMI errors beyond Levenshtein distance 2 can still split one molecule into several clusters; distinct molecules with close UMIs in the same cell $\times$ target can be wrongly merged; and molecules with fewer than $n_{\min}$ usable reads are lost to genotyping (their number is reported). The size of these effects on real data is measured in the NanoGen repository (\texttt{docs/research/umi-measurement.md}).
+\end{enumerate}
+
+\section*{Summary of changes from the September 2026 version}
+\begin{enumerate}
+\item UMI grouping stated: primary alignments only, bundled per cell $\times$ target with no windows, UMIs merged at Levenshtein distance $\leq 2$ by the downhill rule; clusters with fewer than $n_{\min}$ usable reads are reported and not used.
+\item Base quality $\geq 20$ applies to SNV targets only; indel targets are counted with no base-quality filter.
+\item Indel alleles: tolerant $\pm \delta$ match of the alternative allele (same type, summed), insertion reads removed from the reference count, same $n_{\min}$ and $f_{\min}$ as SNVs.
+\item $f_{\min}$ lowered from the stated 0.75 to the implemented 0.6, with its rationale.
+\item Error for indel targets estimated as $\hat q_i = w_i/N_i$; remark on homopolymer and tandem-repeat indel targets added.
+\item Decision rule extended with $m_{\min}$; unchanged at the default $m_{\min}=1$.
+\item Limitations 1 and 2 restated as reported quantities; limitation 3 reduced to the residual effects of the new grouping.
+\item Implementation-neutral wording of the tail computation.
+\end{enumerate}
+
+\section*{Summary of changes from the February 2024 version}
+\begin{enumerate}
+\item UMI consensus described explicitly; third-allele (OTH) class fixed so that experimental error can be estimated.
+\item Error model derived without the heterozygosity assumption; same final formula.
+\item Error estimated per target, pooled over cells, with floor $\varepsilon=10^{-4}$.
+\item Negative binomial replaced by the equivalent binomial upper tail; summation index corrected to start at 0.
+\item Decision thresholds aligned with the implementation (0.1 / 0.9); undetermined class stated explicitly.
+\item Limitations of the current rule documented (contamination, WT sensitivity, UMI grouping).
+\end{enumerate}
+
+\end{document}

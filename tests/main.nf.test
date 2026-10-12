@@ -35,4 +35,49 @@ nextflow_pipeline {
 
     }
 
+    test("a retired parameter warns and the run continues") {
+
+        when {
+            params {
+                def samplesheet = new File("${outputDir}/samplesheet.csv")
+                samplesheet.parentFile.mkdirs()
+                samplesheet.text = [
+                    "sample,lane,fastq",
+                    "S1,L1,${baseDir}/tests/data/S1_L1.fastq",
+                ].join("\n") + "\n"
+
+                input          = samplesheet.toString()
+                outdir         = "${outputDir}/results"
+                baseline_error = 0.001
+            }
+        }
+
+        then {
+            assert workflow.success
+            assert (workflow.stdout + workflow.stderr).any {
+                it.contains("--baseline_error is retired and its value is ignored: renamed; use --error_floor instead.")
+            }
+            assert !(workflow.stdout + workflow.stderr).any { it.contains("Found unexpected parameters") }
+        }
+
+    }
+
+    test("a parameter out of bounds fails validation") {
+
+        when {
+            params {
+                input        = "${outputDir}/samplesheet.csv"
+                outdir       = "${outputDir}/results"
+                min_fraction = 0.5
+            }
+        }
+
+        then {
+            assert workflow.failed
+            assert workflow.trace.tasks().size() == 0
+            assert (workflow.stdout + workflow.stderr).any { it.contains("* --min_fraction:") }
+        }
+
+    }
+
 }

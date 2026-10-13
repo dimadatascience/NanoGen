@@ -222,13 +222,19 @@ def test_snv_lowq_alt_bases_have_low_quality():
          if _site_base(r, pos)})
 
 
-def test_ins_and_hp_del_carry_their_target_indel():
-    targets = _targets()
-    for scenario, gene in [("ins", "INS"), ("hp_del", "HP")]:
-        _, pos, _, alt = targets[gene]
-        reads = _scenario(scenario)
-        assert reads
-        assert {_indel_at(r, pos) for r in reads} == {alt}
+def test_ins_carries_its_target_indel():
+    _, pos, _, alt = _targets()["INS"]
+    reads = _scenario("ins")
+    assert reads
+    assert {_indel_at(r, pos) for r in reads} == {alt}
+
+
+def test_hp_del_carries_the_target_deletion_and_one_bp_longer_in_the_run():
+    _, pos, _, alt = _targets()["HP"]
+    reads = _scenario("hp_del")
+    assert len(_umis(reads)) == 1
+    assert sorted(_indel_at(r, pos) for r in reads) == [alt, alt, alt + "T", alt + "T"]
+    assert _contig()[pos - 1:pos + 1] == "TT"  # the longer deletion stays in the T run
 
 
 def test_sec_supp_has_secondary_and_supplementary_records_of_one_molecule():
@@ -300,9 +306,11 @@ def test_readcount_base_quality_filter_drops_the_low_quality_snv_base(tmp_path):
 
 def test_readcount_reports_insertion_and_homopolymer_deletion(tmp_path):
     targets = _targets()
-    for scenario, gene in [("ins", "INS"), ("hp_del", "HP")]:
-        _, pos, _, alt = targets[gene]
-        assert _readcount(tmp_path, _cell_of(scenario), 0)[pos][alt] == 4
+    _, pos, _, alt = targets["INS"]
+    assert _readcount(tmp_path, _cell_of("ins"), 0)[pos][alt] == 4
+    _, pos, _, alt = targets["HP"]
+    counts = _readcount(tmp_path, _cell_of("hp_del"), 0)[pos]
+    assert (counts[alt], counts[alt + "T"]) == (2, 2)
 
 
 # --- drift check -------------------------------------------------------------

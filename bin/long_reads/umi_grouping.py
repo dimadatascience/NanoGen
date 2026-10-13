@@ -32,8 +32,8 @@ from genotyping import target_id
 
 # Flags of unmapped (0x4), secondary (0x100) and supplementary (0x800) records
 NOT_PRIMARY_MAPPED = 0x904
-# k: indel bundles reach k bp either side of the target, the same k as the
-# tolerant indel ALT match
+# k: indel bundles reach k bp either side of the target, and an indel entry is
+# ALT-like if its length is within k bp of the target's (count_consensus.py)
 INDEL_K = 1
 
 

@@ -36,6 +36,14 @@ _Avoid_: UMI call
 A UMI cluster covering the target with fewer than n_min usable reads. It is reported (`subnmin_umis`, `subnmin_reads`) but never labelled.
 _Avoid_: small UMI (cluster size alone does not decide it)
 
+**ALT-like read**:
+A usable read in a WT-labelled cluster at an indel target that matches the alt by the tolerant match. Their count and their fraction of the WT clusters' usable reads (`wt_altlike_reads`, `wt_reads`) show WT→ALT leakage at a repeat.
+_Avoid_: leaked read
+
+**Mixed discarded cluster**:
+A discarded cluster with both REF and ALT usable reads, counted as `mixed_discarded`.
+_Avoid_: conflicting cluster
+
 **Discarded cluster**:
 A UMI cluster with at least n_min usable reads where no allele reaches both n_min and f_min. Every cluster covering a target is exactly one of: sub-n_min, labelled or discarded.
 _Avoid_: ambiguous UMI

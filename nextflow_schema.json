@@ -83,7 +83,8 @@
             "title": "UMI grouping",
             "type": "object",
             "fa_icon": "fas fa-object-group",
-            "description": "Which reads enter UMI grouping.",
+            "description": "Which reads enter UMI grouping, and how UMIs are merged within a cell × target bundle.",
+            "help_text": "Primary mapped reads are bundled per cell × target. Within a bundle, UMI v is merged into UMI u if d_L(u, v) <= umi_max_ld and either n_u >= umi_ratio · n_v - 1 or (n_v <= umi_small_reads and n_u >= n_v), n being reads per raw UMI.",
             "properties": {
                 "min_mapping_quality": {
                     "type": "integer",
@@ -91,8 +92,35 @@
                     "minimum": 0,
                     "maximum": 255,
                     "description": "Minimum mapping quality for a read to enter UMI grouping.",
-                    "help_text": "Reads with MAPQ below this value are dropped before UMIs are grouped. Not a spec symbol: the spec assumes reads are confidently aligned. Units: Phred-scaled MAPQ.",
+                    "help_text": "Primary mapped reads with MAPQ below this value are dropped before UMIs are grouped; secondary and supplementary records are always dropped. Spec: mapping quality >= 20 (no symbol). Units: Phred-scaled MAPQ.",
                     "fa_icon": "fas fa-filter"
+                },
+                "umi_max_ld": {
+                    "type": "integer",
+                    "default": 2,
+                    "minimum": 0,
+                    "hidden": true,
+                    "description": "Maximum Levenshtein distance between two UMIs merged into one cluster.",
+                    "help_text": "Spec: the bound on d_L(u, v) in the grouping rule (no symbol; 2 in the spec). Levenshtein distance counts substitutions, insertions and deletions, so Nanopore indel errors in UMIs are corrected. Units: edits.",
+                    "fa_icon": "fas fa-ruler"
+                },
+                "umi_ratio": {
+                    "type": "number",
+                    "default": 2,
+                    "minimum": 1,
+                    "hidden": true,
+                    "description": "Read-count ratio for a UMI to absorb a close, smaller one: n_u >= umi_ratio · n_v - 1.",
+                    "help_text": "Spec: the factor 2 in n_u >= 2n_v - 1 in the grouping rule (no symbol). Larger values merge fewer UMIs. Units: ratio of reads per raw UMI.",
+                    "fa_icon": "fas fa-balance-scale"
+                },
+                "umi_small_reads": {
+                    "type": "integer",
+                    "default": 3,
+                    "minimum": 0,
+                    "hidden": true,
+                    "description": "A close UMI with at most this many reads is absorbed by any UMI with at least as many reads.",
+                    "help_text": "Spec: the 3 in (n_v <= 3 and n_u >= n_v) in the grouping rule (no symbol). The n_u >= n_v guard keeps merges downhill; 0 disables the clause. Units: reads per raw UMI.",
+                    "fa_icon": "fas fa-compress-alt"
                 }
             }
         },
@@ -105,7 +133,7 @@
             "properties": {
                 "min_reads": {
                     "type": "integer",
-                    "default": 2,
+                    "default": 3,
                     "minimum": 1,
                     "description": "Minimum usable reads supporting an allele to label a UMI cluster.",
                     "help_text": "Spec symbol n_min. A UMI cluster gets a consensus label only if the winning allele has at least n_min usable reads. Units: reads.",

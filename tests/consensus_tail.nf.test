@@ -28,9 +28,12 @@ nextflow_workflow {
             assert workflow.success
 
             // Per-cell consensus counts, hand-specified from the fixture scenarios.
-            // SNV1 (AAACCCAAGAAACACT): wt is WT; the ld2_pair molecules and sec_supp
-            // are MUT; oth (T) is OTH, tested on its own count; subnmin is a
-            // sub-n_min cluster with 2 usable reads.
+            // SNV1 (AAACCCAAGAAACACT): wt is WT; the ld2_pair UMIs (10:3 reads,
+            // Levenshtein 2) are one MUT cluster; oth is OTH, tested on its own
+            // count. subnmin (2 reads) and sec_supp (2 primary reads, its
+            // secondary and supplementary records dropped) are sub-n_min: 2 UMIs, 4 reads.
+            // SNV2 (AAACCCAAGAAACCAT): straddle, whose reads start either side of
+            // a former 100 bp window, is one MUT cluster.
             // DEL (AAACCCAAGAAACCCA): del_k is discarded under main's indel
             // matching, and del_lowq is MUT, its quality-5 anchor kept by the
             // unfiltered indel pass. snv_lowq is a sub-n_min cluster at SNV2 with no
@@ -41,13 +44,13 @@ nextflow_workflow {
             def del  = "AAACCCAAGAAACCCA"
             assert path(workflow.out.counts.get(0).get(1)).linesGzip == [
                 header,
-                "chrF,301,301,A,G,SNV1,1,3,1,1,2,${snv}",
+                "chrF,301,301,A,G,SNV1,1,1,1,2,4,${snv}",
                 "chrF,701,701,A,G,SNV2,0,0,0,0,0,${snv}",
                 "chrF,1002,1002,T,-TTA,DEL,0,0,0,0,0,${snv}",
                 "chrF,1301,1301,A,+GTC,INS,0,0,0,0,0,${snv}",
                 "chrF,1602,1602,T,-T,HP,0,0,0,0,0,${snv}",
                 "chrF,301,301,A,G,SNV1,0,0,0,0,0,${mix}",
-                "chrF,701,701,A,G,SNV2,1,2,0,0,0,${mix}",
+                "chrF,701,701,A,G,SNV2,1,1,0,0,0,${mix}",
                 "chrF,1002,1002,T,-TTA,DEL,0,0,0,0,0,${mix}",
                 "chrF,1301,1301,A,+GTC,INS,1,1,0,0,0,${mix}",
                 "chrF,1602,1602,T,-T,HP,1,1,0,0,0,${mix}",
@@ -93,8 +96,8 @@ nextflow_workflow {
                 rows.find { it.gene == gene && it.barcode == cell }.subMap(["WT", "MUT", "OTH"])
             }
 
-            // wt is WT and del_k MUT; del_lowq is MUT only if its quality-5 anchor is kept
-            assert counts("DEL", "AAACCCAAGAAACCCA") == [WT: "1", MUT: "2", OTH: "0"]
+            // wt is WT and del_k discarded; del_lowq is MUT only if its quality-5 anchor is kept
+            assert counts("DEL", "AAACCCAAGAAACCCA") == [WT: "1", MUT: "1", OTH: "0"]
             // snv_lowq's ALT bases have quality 5, so they are still filtered out
             assert counts("SNV2", "AAACCCAAGAAACCCA") == [WT: "0", MUT: "0", OTH: "0"]
         }
@@ -126,13 +129,13 @@ nextflow_workflow {
         then {
             assert workflow.success
             // The SNV rows of the single-pass (-b snv_min_base_quality) run, at the
-            // default n_min = 2: subnmin's 2-read cluster is WT at SNV1
+            // default n_min = 3, equal to the two-pass run's
             assert path(workflow.out.counts.get(0).get(1)).linesGzip == [
                 "chr,start,end,ref,alt,gene,WT,MUT,OTH,subnmin_umis,subnmin_reads,barcode",
-                "chrF,301,301,A,G,SNV1,2,3,1,0,0,AAACCCAAGAAACACT",
+                "chrF,301,301,A,G,SNV1,1,1,1,2,4,AAACCCAAGAAACACT",
                 "chrF,701,701,A,G,SNV2,0,0,0,0,0,AAACCCAAGAAACACT",
                 "chrF,301,301,A,G,SNV1,0,0,0,0,0,AAACCCAAGAAACCAT",
-                "chrF,701,701,A,G,SNV2,1,2,0,0,0,AAACCCAAGAAACCAT",
+                "chrF,701,701,A,G,SNV2,1,1,0,0,0,AAACCCAAGAAACCAT",
                 "chrF,301,301,A,G,SNV1,0,0,0,0,0,AAACCCAAGAAACCCA",
                 "chrF,701,701,A,G,SNV2,0,0,0,1,0,AAACCCAAGAAACCCA",
             ]

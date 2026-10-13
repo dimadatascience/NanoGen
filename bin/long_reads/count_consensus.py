@@ -6,6 +6,8 @@ import re
 
 import pandas as pd
 
+from genotyping import target_id
+
 
 ##
 
@@ -96,15 +98,24 @@ def parse_clusters(line):
 
 def parse_readcount_line(line):
     """
-    Parse one bam-readcount -p line.
+    Parse one bam-readcount -p line, where each block follows its library name.
 
     Returns:
-        Tuple[str, int, str, List[List[Tuple[str, int]]]]: Chromosome, position,
-                                                          reference base and the
-                                                          per-cluster base counts.
+        Tuple[str, int, str, List[Tuple[str, List[Tuple[str, int]]]]]:
+            Chromosome, position, reference base and, per cluster, its library
+            and base counts (see parse_clusters).
     """
     fields = line.split("\t")
-    return fields[0], int(fields[1]), fields[2], parse_clusters(line)
+    libraries = re.findall(r"([^\t{}]+)\t\{", line)
+    return fields[0], int(fields[1]), fields[2], list(zip(libraries, parse_clusters(line)))
+
+
+def library_target(library):
+    """
+    The target whose bundle a cluster belongs to. umi_grouping.py names each
+    cluster's read group <target_id>_<cluster ID>.
+    """
+    return library.rsplit("_", 1)[0]
 
 
 ##
@@ -290,7 +301,11 @@ def count_targets(target, lines, min_fraction=0.6, min_reads=3):
                 if (chrom, start_pos, alt) in scored_snvs:
                     continue
                 scored_snvs.add((chrom, start_pos, alt))
-            counts = tally_clusters(clusters, ref, alt, min_fraction, min_reads)
+            # Reads in several bundles have a record per bundle: score only the
+            # clusters of this target's bundle
+            tid = target_id(chrom, start_pos, ref, alt)
+            own = [entries for library, entries in clusters if library_target(library) == tid]
+            counts = tally_clusters(own, ref, alt, min_fraction, min_reads)
             # Rows are matched on chr, start and alt only, as on main
             for val in COUNT_COLUMNS:
                 target.loc[

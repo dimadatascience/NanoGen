@@ -15,40 +15,42 @@ process CONSENSUS {
     tuple val(sample_name), path("${cell}_table.csv"), emit: tables
 
     script:
-    """ 
-    # Generate cell-target-site-UMI consensus allele counts. The window (-w) and
-    # UMI distance (-d) are fixed at the former params' defaults until cell x target
-    # grouping replaces umi_tools and the windows. Every cluster is counted (-c 1):
-    # count_consensus.py applies n_min to usable reads and reports sub-n_min clusters.
-    # bam-readcount runs once per target type: -b snv_min_base_quality at SNVs, no
-    # base-quality filter at indels.
-    bash ${baseDir}/bin/long_reads/make_consensus.sh \
+    """
+    # Group UMIs per cell x target: primary mapped reads with MAPQ >= min_mapping_quality,
+    # one read group per cluster (<target_id>_<cluster ID>, also the MI tag)
+    python ${baseDir}/bin/long_reads/umi_grouping.py \
     -i ${bam} \
     -b ${params.bedfile} \
-    -r ${params.minimap2_input_genome} \
-    -q ${params.min_mapping_quality} \
-    -c 1 \
-    -w 100 \
-    -m ${params.snv_min_base_quality} \
-    -d 1
+    -o grouped.bam \
+    --min_mapq ${params.min_mapping_quality} \
+    --max_ld ${params.umi_max_ld} \
+    --ratio ${params.umi_ratio} \
+    --small_reads ${params.umi_small_reads}
 
+    # One bam-readcount -p pass per target type, concatenated SNV pass first: SNV
+    # targets keep the base-quality filter, indel targets have none, as it would
+    # drop a deletion on its anchor base. A pass with no targets is skipped.
+    awk -F'\\t' '\$5 !~ /^[+-]/' ${params.bedfile} > snv_targets.bed
+    awk -F'\\t' '\$5 ~ /^[+-]/' ${params.bedfile} > indel_targets.bed
+    : > allcounts.count
+    if [ -s snv_targets.bed ]; then
+        bam-readcount -f ${params.minimap2_input_genome} --site-list snv_targets.bed \
+        -b ${params.snv_min_base_quality} grouped.bam -p >> allcounts.count
+    fi
+    if [ -s indel_targets.bed ]; then
+        bam-readcount -f ${params.minimap2_input_genome} --site-list indel_targets.bed \
+        -b 0 grouped.bam -p >> allcounts.count
+    fi
 
-    # Extract counts from bam-readcount output!!!!
+    # Consensus labels and sub-n_min clusters per target
     python ${baseDir}/bin/long_reads/count_consensus.py \
-    -i temp_${cell}/allcounts.count \
+    -i allcounts.count \
     -t ${params.bedfile} \
     --cell_barcode ${cell} \
     --min_read ${params.min_reads} \
     --min_fraction ${params.min_fraction}
-    
 
-    # Clean up
-    rm bam_header.sam
-    rm filtered_input.bam*
-    rm grouped_reads.tsv
-    rm output.bam
-    rm output.sam
-    rm -r temp_${cell}
+    rm grouped.bam* snv_targets.bed indel_targets.bed allcounts.count
     """
 
     stub:

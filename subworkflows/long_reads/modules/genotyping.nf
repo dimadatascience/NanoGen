@@ -21,7 +21,7 @@ process GENOTYPING {
  
     script:
     """
-    python ${baseDir}/bin/long_reads/genotyping.py --input ${counts} --output ${sample}.csv --targets_output ${sample}_targets.csv --error_floor ${params.error_floor} --min_mut_umis ${params.min_mut_umis}
+    python ${baseDir}/bin/long_reads/genotyping.py --input ${counts} --output ${sample}.csv --targets_output ${sample}_targets.csv --error_floor ${params.error_floor} --min_mut_umis ${params.min_mut_umis} --snv_min_base_quality ${params.snv_min_base_quality}
     """
 
     stub:

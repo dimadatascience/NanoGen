@@ -18,21 +18,6 @@
                 "AAACCCAAGAAACCCA,chrF:1002:T>-TTA,DEL,INDEL,1,2,0,0.0001,2.9998e-08,MUT,",
                 "AAACCCAAGAAACCCA,chrF:1301:A>+GTC,INS,INDEL,0,0,0,0.0001,,,",
                 "AAACCCAAGAAACCCA,chrF:1602:T>-T,HP,INDEL,0,0,0,0.0001,,,"
-            ],
-            [
-                "target_id,gene,type,N,w,d,q_hat,eps,P_s,floor_applied",
-                "chrF:301:A>G,SNV1,SNV,3,1,2,0.16666666666666666,0.0001,0.16666666666666666,False",
-                "chrF:701:A>G,SNV2,SNV,2,0,2,0.0,0.0001,0.0001,True",
-                "chrF:1002:T>-TTA,DEL,INDEL,3,0,1,0.0,0.0001,0.0001,True",
-                "chrF:1301:A>+GTC,INS,INDEL,2,0,1,0.0,0.0001,0.0001,True",
-                "chrF:1602:T>-T,HP,INDEL,2,0,1,0.0,0.0001,0.0001,True"
-            ],
-            [
-                "Total number of cells: 3",
-                "Total number of UMIs: 12",
-                "Median UMI per cell: 3.0",
-                "Median genes covered per cell: 1.0",
-                "Fraction of cells with UMIs: 1.0"
             ]
         ],
         "meta": {

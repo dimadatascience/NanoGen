@@ -11,8 +11,8 @@ workflow long_reads {
         ch_input 
 
     main:
-        BLAZE → MERGE_READS → MINIMAP2 → SPLIT_BAM 
-              → CONSENSUS → GENOTYPING
+        BLAZE → MERGE_READS → MINIMAP2 → FIXTAGS → SPLIT_BAM
+              → CONSENSUS → COLLAPSE → GENOTYPING
 
     emit:
         results = GENOTYPING.out.genotypes
@@ -24,9 +24,21 @@ workflow long_reads {
 1. **BLAZE**: Barcode-aware filtering and demultiplexing of long reads.
 2. **MERGE_READS**: Merges filtered reads per sample.
 3. **MINIMAP2**: Aligns reads to the reference genome using `minimap2`.
-5. **SPLIT_BAM**: Splits BAMs by cell barcode.
-6. **CONSENSUS**: Builds consensus transcripts for each single cell.
-7. **GENOTYPING**: Derives genotypes from allele count data.
+4. **FIXTAGS**: Writes the cell barcode and UMI into the `CB` and `UB` tags.
+5. **SPLIT_BAM**: Splits BAMs by cell barcode and reports on-target reads.
+6. **CONSENSUS**: Groups reads per cell × target into consensus UMIs and labels each WT, MUT or OTH.
+7. **COLLAPSE**: Gathers the consensus UMI counts of all cells of a sample.
+8. **GENOTYPING**: Estimates the error rate of each target and calls each cell × target MUT, WT or undetermined.
+
+## 🧮 Genotyping model
+
+The model is specified in [`docs/genotyping/genotyping.pdf`](docs/genotyping/genotyping.pdf) (source `genotyping.tex`); this is a summary.
+Within each cell, the reads covering a target are grouped by UMI, merging UMIs that differ only by sequencing errors, so each group stands for one molecule.
+A group with enough reads, most of them agreeing, becomes a consensus UMI labelled WT (reference allele), MUT (alternative allele) or OTH (any other allele); groups with too few reads are counted but not used.
+OTH UMIs can only arise from errors, so the error rate of each target is estimated from its OTH UMIs pooled over all cells, with a lower floor.
+For each cell × target, a binomial tail gives the probability of seeing at least the observed MUT UMIs if the cell were WT.
+A cell is called MUT when that probability is small, WT when it has no MUT UMI and at least two WT UMIs or when the MUT UMIs are well explained by error, and is left undetermined otherwise.
+Single-UMI MUT calls and the chance of missing a heterozygous cell are reported alongside the calls.
 
 ## 📥 Input
 
@@ -63,7 +75,6 @@ params.outdir
 |       |-- blaze.log
 |       |-- genotype.log
 |       |-- target.log
-
 ```
 
 - sample.csv contains the genotyping results for the targeted region, one row per cell × target, written without an index column:
@@ -144,6 +155,18 @@ params.outdir
 Hidden parameters are listed by `--help --show_hidden_params`. They include the UMI grouping rule's thresholds `--umi_max_ld` (`2`), `--umi_ratio` (`2`) and `--umi_small_reads` (`3`), and the BLAZE options `--blaze_expect_cells` and `--blaze_edit_distance`.
 
 Retired parameters still run but log a warning and are ignored: `--baseline_error` is now `--error_floor`, `--min_base_quality` is now `--snv_min_base_quality`, and `--window_width` and `--min_dist_umi_collapsing` are no longer parameters.
+
+## 🔁 Changes in genotype-v2
+
+For users of `main`, genotype-v2 changes the outputs, the parameters and the calls:
+
+- **MIS → OTH.** The third-allele UMI count column is renamed from `MIS` to `OTH`.
+- **`target_id`.** A target is identified by one `target_id` column (`chr:start:ref>alt`) instead of `chr`, `start`, `end`, `ref` and `alt`, next to `gene` and a new `type`; `sample.csv` no longer has an index column.
+- **New `sample_targets.csv`.** The error rate is estimated per target, pooled over cells, instead of per cell, pooled over targets; this file reports it with each target's limitations (see Output Structure).
+- **Parameters.** `--baseline_error` is now `--error_floor`, `--min_base_quality` is now `--snv_min_base_quality`, and `--window_width` and `--min_dist_umi_collapsing` are retired; `--min_mut_umis` is new. Retired names still run with a warning. See Parameters.
+- **Tagged-BAM entry point.** `--input_type tagged_bam` starts a run from aligned BAMs with `CB`/`UB` tags (see Input).
+- **Calls differ from `main`.** UMIs are grouped per cell × target instead of per 100 bp window, so a molecule is counted once; indel alleles use the same consensus rule as SNVs; the error rate is per target. In the attribution ladder on PALM14E, MUT calls drop from 2,293 to 1,476 and 1,049 of 4,926 cells change at least one call; each change is attributed to its cause in [`docs/research/regression-palm14e.md`](docs/research/regression-palm14e.md).
+<!-- TODO(#41): replace the PALM14E figures above with the merge gate's final numbers. -->
 
 ## 🚀 Running the Pipeline
 

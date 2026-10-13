@@ -136,3 +136,68 @@ Hard flips summed over targets. The "against" column counts hard flips in a dire
   - S2's count shrink is 0.19×, not ≈ 0.3×.
   - S4 also changes SNV calls, through the gate, not only through OTH.
 - **One new decision:** the n_min gate definition (§4).
+
+# Merge gate: genotype-v2 fidelity on PALM14E
+
+Ticket: *Merge gate: genotype-v2 fidelity on PALM14E (HPC)* (#41), spec #24. The ladder above explains why v2's calls differ from `main`; the gate checks that v2 implements the decided design. Same data rules: aggregates only, targets T1–T7 in BED order, per-cell and per-cluster tables in `PALM14E_subset/merge_gate/full/gate/private/` (group `deo_p_dima_scm`).
+
+## Setup
+
+- **Input:** the tagged on-target PALM14E BAM (`ontarget/palm14e_ontarget.bam`, FIXTAGS output restricted to targets ± 1 kb, 16.0 M records, 4,947 cells), the BAM `main`'s `palm14e_rerun.csv` comes from.
+- **v2 run:** `genotype-v2` @ f2c212f through the tagged-BAM entry point (`--input_type tagged_bam`), pinned image `sha256:764368d6…`, `regression/run_v2.sh` + `merge_gate.config`. It took 57 min.
+- **Gate:** `regression/merge_gate.py` via `run_merge_gate.sh`. It reads the per-cell BAMs that v2's own SPLIT_BAM wrote, so v2 and the emulation see the same reads.
+  - **v2 side:** v2's CONSENSUS functions, called per cell (`umi_grouping.write_grouped_bam`, the two bam-readcount passes, `count_consensus`), with each read's `MI` tag and each read group's bam-readcount block kept.
+  - **Emulation, independent of v2's code:**
+    - **Bundles:** primary mapped, MAPQ ≥ 20, UB-tagged reads in a pysam pileup over the target (SNV: the site; T3: the deletion ± 1 bp, deletions included, introns not).
+    - **Clusters:** the measurement helper `hybrid.hybrid` (LD ≤ 2, T = 3, downhill).
+    - **Alleles, per read:** SNV = pileup base with q ≥ 20 in A/C/G/T; T3 = the read's site-line entry (`kit_indel.read_info`, no quality filter), ALT by the tolerant match with k = 1.
+    - **Labels:** rule A on usable reads. The cluster-read-gated helpers (`hybrid.consensus`, `kit_indel.uniform_label`) are not used.
+- **Sizing:** two mocks first (250 and 1,000 random cells, seed 41), then the full run at their peaks + 50 %. Both mocks passed every check below.
+
+| job | mock peak (1,000 cells) | full allocation | full peak |
+|---|---|---|---|
+| SPLIT_BAM | 1.5 GB, 2 m 26 s | 12.75 GB, 30 min (from the full-data e2e peak, 8.5 GB) | 7.2 GB, 11 m 52 s |
+| CONSENSUS, per cell | 944 MB, 145 s | 1,416 MB, 4 min | 1.6 GB (one cell), 234 s |
+| gate, 16 cores | 4.6 GB, 82 CPU-min | 27 GB, 1 h | 10.2 GB, 28 min |
+
+No task failed or retried. One CONSENSUS cell went over its memory allocation without being killed.
+
+## Results
+
+| check | criterion | result |
+|---|---|---|
+| G0 tie | the gate's per-cell v2 tallies equal the pipeline's `palm14e.csv` | 34,629 / 34,629 rows identical |
+| **a1 grouping** | read → cluster membership equals the emulation exactly | **pass:** every cell × target bundle (21,682) has the same reads and the same partition; 81,160 / 81,160 clusters matched |
+| **a2 caller** | the reference caller (`ladder.call_spec_all`) on v2's own WT / MUT / OTH reproduces v2's calls and P_s exactly | **pass:** 34,629 / 34,629 calls and P_s; p equal to ≤ 8e-18 (float rounding) |
+| **a3 labels** | per-cluster labels agree ≥ 99 % per target, rule A | **pass:** 100 % at every target; the usable-read counts (r, a, o) also match for every cluster |
+
+Per target:
+
+| target | bundles | clusters | sub-n_min | WT | MUT | OTH | discarded | label agreement |
+|---|---|---|---|---|---|---|---|---|
+| T1 | 3,998 | 13,569 | 13,206 | 202 | 123 | 0 | 38 | 100 % |
+| T2 | 3,693 | 9,461 | 9,252 | 3 | 206 | 0 | 0 | 100 % |
+| T3 (indel) | 2,298 | 5,593 | 5,144 | 207 | 188 | 0 | 54 | 100 % |
+| T4 | 2,298 | 5,593 | 5,287 | 168 | 119 | 0 | 19 | 100 % |
+| T5 | 2,301 | 5,601 | 5,300 | 148 | 122 | 0 | 31 | 100 % |
+| T6 | 3,616 | 23,731 | 20,639 | 1,516 | 1,312 | 0 | 264 | 100 % |
+| T7 | 3,478 | 17,612 | 15,368 | 1,007 | 815 | 0 | 422 | 100 % |
+
+- **P_s sits at the floor** (1e-4) at every target: w = 0, as in the ladder (§3). a2 therefore checks the binomial tail, the 0.1 / 0.9 rule and the N = 0 handling at the floor; the q̂ > ε branch is covered only by the unit tests.
+- **The one fault found was in the emulation, not in v2.** A first pass matched every label but differed in the counts of 3 T3 clusters (1–2 reads each). Re-running bam-readcount per read showed v2's counts were right: the emulation read T3 site entries from every record overlapping the site, so a secondary or supplementary record sharing the primary's name and start overwrote its allele. With the emulation fixed, every count matches; the aggregate tables are otherwise unchanged.
+
+## main → v2 on the same BAM (migration note)
+
+| | `main` | v2 |
+|---|---|---|
+| MUT calls | 2,289 | 1,393 |
+| WT calls | 811 | 567 |
+| cells changing ≥ 1 call | | 1,073 of 4,947 |
+| hard flips | | 174 MUT → WT, 5 WT → MUT |
+| MUT calls with m = 1 | | 830 (60 %) |
+
+MUT calls per target, `main` → v2: T1 79 → 52, T2 481 → 140, T3 126 → 66, T4 86 → 56, T5 91 → 58, T6 810 → 618, T7 616 → 403. These are close to the ladder's S0 → S6 (2,293 → 1,476, 1,049 cells), which ran on a slightly different record set (`records.pkl`, a ± 3 bp window at T3, 4,926 cells).
+
+## Verdict
+
+**v2 passes the merge gate.** Its grouping and caller match the reference exactly, and its consensus labels agree with the emulation on every cluster at every target. Nothing blocks `genotype-v2` from replacing `main`.

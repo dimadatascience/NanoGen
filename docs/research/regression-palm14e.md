@@ -123,6 +123,10 @@ Hard flips summed over targets. The "against" column counts hard flips in a dire
 
 - **The cluster-read gate turns UMIs with a single usable ALT read into MUT UMIs.** Example: 1 ALT read plus 2 reads without a site base gives n = 3 and fraction 1.0.
 - **It doesn't block the ladder:** both readings are explained. But the implementation must pick one, and the merge gate's emulation (a3) must use the same one. This is raised as a new ticket, *n_min gate: usable reads or all cluster reads*.
+- **Resolved ([n_min gate: usable reads or all cluster reads](https://github.com/dimadatascience/NanoGen/issues/22)):** neither S4 nor S4n. v2 applies the revised document's equation (1) as written.
+  - The winning allele must itself have ≥ n_min usable reads, and its fraction of r + a + o must be ≥ f_min. This is the same for SNV and indel targets.
+  - S4 departed from this: it gated r + a + o ≥ n_min and then labelled 2 ALT : 1 REF UMIs. Under equation (1) those UMIs are discarded. The expected S3 → S4 change should therefore be the T3 shortcut removal only, with no SNV WT → MUT expected.
+  - The merge gate's emulation (a3) must use the same rule.
 
 ## Verdict
 

@@ -97,12 +97,12 @@ params.outdir
 | `P_s` | Error rate used for the calls, max(`q_hat`, `eps`) |
 | `floor_applied` | `True` when `P_s` is the floor, i.e. `q_hat` < `eps` or N = 0 |
 | `min_base_qual` | Base-quality filter applied to the target's reads: `--snv_min_base_quality` at an SNV, 0 at an indel |
-| `wt_reads` | Usable reads of the WT-labelled UMIs over all cells. Indel diagnostic: empty (NaN) for an SNV |
-| `wt_altlike_reads` | Of `wt_reads`, the reads matching the alt by the tolerant match: WT→ALT leakage at a repeat. Empty for an SNV |
+| `wt_reads` | Usable reads of the WT-labelled clusters over all cells. Indel diagnostic: empty (NaN) for an SNV |
+| `wt_altlike_reads` | ALT-like reads: of `wt_reads`, the reads matching the alt by the tolerant match, showing WT→ALT leakage at a repeat. Empty for an SNV |
 | `wt_altlike_frac` | `wt_altlike_reads` / `wt_reads`; empty for an SNV or when `wt_reads` = 0 |
-| `mixed_discarded` | Discarded UMIs (≥ n_min usable reads, no allele reaching n_min and f_min) with both REF and ALT reads |
-| `subnmin_umis` | UMIs covering the target with fewer than n_min usable reads, never labelled |
-| `subnmin_reads` | Usable reads of the sub-n_min UMIs |
+| `mixed_discarded` | Mixed discarded clusters: discarded clusters (≥ n_min usable reads, no allele reaching n_min and f_min) with both REF and ALT usable reads |
+| `subnmin_umis` | Sub-n_min clusters: clusters covering the target with fewer than n_min usable reads, never labelled |
+| `subnmin_reads` | Usable reads of the sub-n_min clusters |
 | `n_MUT` | Cells called MUT |
 | `n_WT` | Cells called WT |
 | `n_undet` | Cells left undetermined, including cells with no UMI at the target |

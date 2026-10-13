@@ -37,7 +37,7 @@ def _parse_args():
         "--targets_output",
         type=str,
         required=True,
-        help="Output name of the per-target error table (<sample>_targets.csv).",
+        help="Output name of the per-target error and diagnostics table (<sample>_targets.csv).",
     )
     parser.add_argument(
         "-b",
@@ -161,10 +161,11 @@ DIAGNOSTIC_COLUMNS = [
 # The ALT-side noise diagnostic, defined at indel targets only
 INDEL_DIAGNOSTIC_COLUMNS = ["wt_reads", "wt_altlike_reads", "wt_altlike_frac"]
 CALL_COUNT_COLUMNS = ["n_MUT", "n_WT", "n_undet", "n_MUT_single_umi"]
-TARGET_COLUMNS = ERROR_COLUMNS + [
+LIMITATION_COLUMNS = [
     "min_base_qual", "wt_reads", "wt_altlike_reads", "wt_altlike_frac",
     "mixed_discarded", "subnmin_umis", "subnmin_reads",
 ] + CALL_COUNT_COLUMNS
+TARGET_COLUMNS = ERROR_COLUMNS + LIMITATION_COLUMNS
 
 
 def target_diagnostics(called, snv_min_base_quality=20):
@@ -185,8 +186,8 @@ def target_diagnostics(called, snv_min_base_quality=20):
                                               Defaults to 20.
 
     Returns:
-        pd.DataFrame: One row per target, in input order, with 'target_id', then
-                      the columns of TARGET_COLUMNS after ERROR_COLUMNS.
+        pd.DataFrame: One row per target, in input order, with 'target_id' and
+                      LIMITATION_COLUMNS.
     """
     genotype = called["genotype"]
     mut = genotype == "MUT"
@@ -202,17 +203,17 @@ def target_diagnostics(called, snv_min_base_quality=20):
              **{col: (col, "sum") for col in DIAGNOSTIC_COLUMNS + CALL_COUNT_COLUMNS})
         .reset_index()
     )
-    targets["min_base_qual"] = np.where(targets["type"] == "SNV", snv_min_base_quality, 0)
+    snv = targets["type"] == "SNV"
+    targets["min_base_qual"] = np.where(snv, snv_min_base_quality, 0)
     targets["wt_altlike_frac"] = (
         targets["wt_altlike_reads"] / targets["wt_reads"].where(targets["wt_reads"] > 0)
     ).astype(float)
 
     # NaN at SNVs; the read counts stay integers as nullable Int64
-    snv = targets["type"] == "SNV"
     for col in INDEL_DIAGNOSTIC_COLUMNS:
         targets[col] = targets[col].mask(snv)
     targets[["wt_reads", "wt_altlike_reads"]] = targets[["wt_reads", "wt_altlike_reads"]].astype("Int64")
-    return targets[["target_id"] + TARGET_COLUMNS[len(ERROR_COLUMNS):]]
+    return targets[["target_id"] + LIMITATION_COLUMNS]
 
 
 def call(mut, wt, p_s, min_mut_umis=1):
@@ -330,9 +331,8 @@ def summarise_calls(table, targets, min_mut_umis=1):
     Returns:
         List[str]: One line per statistic.
     """
-    mut = table[table["genotype"] == "MUT"]
+    n = targets[CALL_COUNT_COLUMNS].sum()
     wt = table[table["genotype"] == "WT"]
-    single_umi = int((mut["MUT"] == 1).sum())
     floored = targets.loc[targets["floor_applied"], "target_id"].tolist()
     floor_line = (
         f"Targets at the error floor (eps = {targets['eps'].iloc[0]}): "
@@ -342,11 +342,11 @@ def summarise_calls(table, targets, min_mut_umis=1):
         floor_line += ": " + ", ".join(floored)
 
     return [
-        f"MUT calls: {len(mut)}",
-        f"WT calls: {len(wt)}",
-        f"Undetermined calls: {int(table['genotype'].isna().sum())}",
-        f"MUT calls with m = 1: {single_umi}",
-        f"Fraction of MUT calls with m = 1: {single_umi / len(mut) if len(mut) else np.nan}",
+        f"MUT calls: {n['n_MUT']}",
+        f"WT calls: {n['n_WT']}",
+        f"Undetermined calls: {n['n_undet']}",
+        f"MUT calls with m = 1: {n['n_MUT_single_umi']}",
+        f"Fraction of MUT calls with m = 1: {n['n_MUT_single_umi'] / n['n_MUT'] if n['n_MUT'] else np.nan}",
         f"WT calls with k = 2: {int((wt['WT'] == 2).sum())}",
         f"WT calls with k = 3: {int((wt['WT'] == 3).sum())}",
         f"WT calls with k >= 4: {int((wt['WT'] >= 4).sum())}",

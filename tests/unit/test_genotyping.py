@@ -17,23 +17,36 @@ import genotyping as gt
 SPEC = Path(__file__).resolve().parents[2] / "docs" / "genotyping" / "genotyping.tex"
 
 
+DIAGNOSTIC_COLUMNS = [
+    "wt_reads", "wt_altlike_reads", "mixed_discarded", "subnmin_umis", "subnmin_reads",
+]
+
+
 def collapsed(*rows):
     """Collapsed consensus counts as COLLAPSE writes them: rows are
-    (chr, start, ref, alt, gene, WT, MUT, OTH, barcode)."""
+    (chr, start, ref, alt, gene, WT, MUT, OTH, barcode), optionally followed by
+    a dict of the per-cell diagnostic columns, which default to 0."""
+    records = []
+    for row in rows:
+        fields, diagnostics = (row[:9], row[9]) if len(row) > 9 else (row, {})
+        records.append(
+            [*fields[:8], *(diagnostics.get(c, 0) for c in DIAGNOSTIC_COLUMNS), fields[8]]
+        )
     table = pd.DataFrame(
-        rows,
-        columns=["chr", "start", "ref", "alt", "gene", "WT", "MUT", "OTH", "barcode"],
+        records,
+        columns=["chr", "start", "ref", "alt", "gene", "WT", "MUT", "OTH",
+                 *DIAGNOSTIC_COLUMNS, "barcode"],
     )
     table.insert(2, "end", table["start"])
     return table
 
 
-def snv(barcode, wt, mut, oth):
-    return ("chrF", 301, "A", "G", "SNV1", wt, mut, oth, barcode)
+def snv(barcode, wt, mut, oth, **diagnostics):
+    return ("chrF", 301, "A", "G", "SNV1", wt, mut, oth, barcode, diagnostics)
 
 
-def deletion(barcode, wt, mut, oth):
-    return ("chrF", 1002, "T", "-TTA", "DEL", wt, mut, oth, barcode)
+def deletion(barcode, wt, mut, oth, **diagnostics):
+    return ("chrF", 1002, "T", "-TTA", "DEL", wt, mut, oth, barcode, diagnostics)
 
 
 def is_na(x):
@@ -45,8 +58,13 @@ OUTPUT_COLUMNS = [
     "cell", "target_id", "gene", "type", "WT", "MUT", "OTH",
     "P_s", "p", "genotype", "het_detect_lb",
 ]
-TARGET_COLUMNS = [
+ERROR_COLUMNS = [
     "target_id", "gene", "type", "N", "w", "d", "q_hat", "eps", "P_s", "floor_applied",
+]
+TARGET_COLUMNS = ERROR_COLUMNS + [
+    "min_base_qual", "wt_reads", "wt_altlike_reads", "wt_altlike_frac",
+    "mixed_discarded", "subnmin_umis", "subnmin_reads",
+    "n_MUT", "n_WT", "n_undet", "n_MUT_single_umi",
 ]
 
 
@@ -114,7 +132,7 @@ def test_targets_table_has_one_row_per_target_in_input_order():
         deletion("c2", 1, 0, 0), snv("c2", 1, 0, 0),
     )
 
-    assert table.columns.tolist() == TARGET_COLUMNS
+    assert table.columns.tolist() == ERROR_COLUMNS
     assert table[["target_id", "gene", "type"]].values.tolist() == [
         ["chrF:1002:T>-TTA", "DEL", "INDEL"],
         ["chrF:301:A>G", "SNV1", "SNV"],
@@ -322,6 +340,85 @@ def test_call_targets_does_not_mutate_its_input():
     pd.testing.assert_frame_equal(c, before)
 
 
+# Per-target diagnostics
+
+
+def targets_of(*rows, **kwargs):
+    return gt.call_targets(collapsed(*rows), **kwargs)[1]
+
+
+def test_targets_table_has_the_error_then_the_diagnostic_columns():
+    assert targets_of(snv("c1", 2, 0, 0)).columns.tolist() == TARGET_COLUMNS
+
+
+def test_min_base_qual_is_the_snv_threshold_at_snvs_and_0_at_indels():
+    targets = targets_of(
+        snv("c1", 2, 0, 0), deletion("c1", 2, 0, 0), snv_min_base_quality=25
+    )
+
+    assert targets["min_base_qual"].tolist() == [25, 0]
+
+
+def test_indel_altlike_reads_pool_over_cells():
+    targets = targets_of(
+        deletion("c1", 2, 0, 0, wt_reads=8, wt_altlike_reads=1),
+        deletion("c2", 1, 0, 0, wt_reads=4, wt_altlike_reads=2),
+    )
+
+    assert targets[["wt_reads", "wt_altlike_reads"]].values.tolist() == [[12, 3]]
+    assert targets["wt_altlike_frac"].tolist() == [0.25]
+
+
+def test_indel_altlike_frac_is_nan_without_wt_reads():
+    targets = targets_of(deletion("c1", 0, 1, 0))
+
+    assert targets[["wt_reads", "wt_altlike_reads"]].values.tolist() == [[0, 0]]
+    assert is_na(targets["wt_altlike_frac"].tolist()[0])
+
+
+def test_indel_diagnostic_columns_are_nan_at_snvs():
+    targets = targets_of(snv("c1", 2, 0, 0, wt_reads=8, wt_altlike_reads=1))
+
+    assert targets[["wt_reads", "wt_altlike_reads", "wt_altlike_frac"]].isna().all(axis=None)
+
+
+def test_discarded_and_subnmin_totals_pool_over_cells_at_every_target():
+    targets = targets_of(
+        snv("c1", 1, 0, 0, mixed_discarded=1, subnmin_umis=2, subnmin_reads=3),
+        snv("c2", 1, 0, 0, mixed_discarded=2, subnmin_umis=1, subnmin_reads=2),
+        deletion("c1", 1, 0, 0, mixed_discarded=1, subnmin_umis=1, subnmin_reads=1),
+    )
+
+    assert targets[["mixed_discarded", "subnmin_umis", "subnmin_reads"]].values.tolist() == [
+        [3, 3, 5],
+        [1, 1, 1],
+    ]
+
+
+def test_call_counts_count_uncovered_cells_as_undetermined():
+    targets = targets_of(
+        snv("c1", 2, 1, 0),  # MUT, single UMI
+        snv("c2", 2, 3, 0),  # MUT
+        snv("c3", 3, 0, 0),  # WT
+        snv("c4", 1, 0, 0),  # undetermined: m = 0, k < 2
+        snv("c5", 0, 0, 0),  # undetermined: N = 0
+        deletion("c1", 2, 0, 0),  # WT
+    )
+
+    assert targets[["n_MUT", "n_WT", "n_undet", "n_MUT_single_umi"]].values.tolist() == [
+        [2, 1, 2, 1],
+        [0, 1, 0, 0],
+    ]
+
+
+def test_min_mut_umis_2_leaves_no_single_umi_mut_calls():
+    targets = targets_of(snv("c1", 2, 1, 0), snv("c2", 2, 2, 0), min_mut_umis=2)
+
+    assert targets[["n_MUT", "n_WT", "n_undet", "n_MUT_single_umi"]].values.tolist() == [
+        [1, 0, 1, 0],
+    ]
+
+
 # genotype.log
 
 
@@ -344,6 +441,57 @@ def test_summary_reports_cells_umis_and_genes():
         "Median UMI per cell: 1.0",
         "Median genes covered per cell: 1.0",
         "Fraction of cells with UMIs: 0.6666666666666666",
+    ]
+
+
+def test_call_summary_reports_calls_single_umi_muts_wt_depth_and_the_floor():
+    table, targets = gt.call_targets(
+        collapsed(
+            snv("c1", 2, 1, 0),  # MUT, single UMI
+            snv("c2", 2, 3, 0),  # MUT
+            snv("c3", 3, 0, 0),  # WT, k = 3
+            snv("c4", 1, 0, 0),  # undetermined
+            deletion("c1", 2, 0, 1),  # WT, k = 2; q_hat = 1 / 8, above the floor
+            deletion("c2", 5, 0, 0),  # WT, k = 5
+        ),
+        error_floor=1e-4,
+    )
+
+    # het_detect_lb of the WT calls: 0.875, 0.75 and 0.96875
+    assert gt.summarise_calls(table, targets, min_mut_umis=1) == [
+        "MUT calls: 2",
+        "WT calls: 3",
+        "Undetermined calls: 1",
+        "MUT calls with m = 1: 1",
+        "Fraction of MUT calls with m = 1: 0.5",
+        "WT calls with k = 2: 1",
+        "WT calls with k = 3: 1",
+        "WT calls with k >= 4: 1",
+        "Median het_detect_lb over WT calls: 0.875",
+        "Minimum het_detect_lb over WT calls: 0.75",
+        "Targets at the error floor (eps = 0.0001): 1 of 2: chrF:301:A>G",
+        "min_mut_umis: 1",
+    ]
+
+
+def test_call_summary_without_calls_or_floored_targets():
+    table, targets = gt.call_targets(
+        collapsed(deletion("c1", 0, 0, 1)), error_floor=1e-4, min_mut_umis=2
+    )
+
+    assert gt.summarise_calls(table, targets, min_mut_umis=2) == [
+        "MUT calls: 0",
+        "WT calls: 0",
+        "Undetermined calls: 1",
+        "MUT calls with m = 1: 0",
+        "Fraction of MUT calls with m = 1: nan",
+        "WT calls with k = 2: 0",
+        "WT calls with k = 3: 0",
+        "WT calls with k >= 4: 0",
+        "Median het_detect_lb over WT calls: nan",
+        "Minimum het_detect_lb over WT calls: nan",
+        "Targets at the error floor (eps = 0.0001): 0 of 1",
+        "min_mut_umis: 2",
     ]
 
 
@@ -385,11 +533,30 @@ def test_cli_writes_the_sample_csv_without_an_index(tmp_path):
 def test_cli_writes_the_targets_csv_without_an_index(tmp_path):
     _, lines = run_cli(tmp_path)
 
+    # The indel diagnostic columns are empty at the SNV, and wt_altlike_frac at
+    # the indel, which has no WT reads
     assert lines == [
         ",".join(TARGET_COLUMNS),
-        "chrF:301:A>G,SNV1,SNV,8,0,2,0.0,0.0001,0.0001,True",
-        "chrF:1602:T>-T,HP,INDEL,2,0,1,0.0,0.0001,0.0001,True",
+        "chrF:301:A>G,SNV1,SNV,8,0,2,0.0,0.0001,0.0001,True,20,,,,0,0,0,2,0,0,1",
+        "chrF:1602:T>-T,HP,INDEL,2,0,1,0.0,0.0001,0.0001,True,0,0,0,,0,0,0,1,0,0,1",
     ]
+
+
+def test_cli_snv_min_base_quality_is_reported_at_snv_targets(tmp_path):
+    _, lines = run_cli(tmp_path, "--snv_min_base_quality", "25")
+
+    min_base_qual = [line.split(",")[10] for line in lines[1:]]
+    assert min_base_qual == ["25", "0"]
+
+
+def test_cli_log_keeps_the_existing_lines_then_summarises_the_calls(tmp_path):
+    run_cli(tmp_path, "--min_mut_umis", "2")
+
+    lines = (tmp_path / "genotype.log").read_text().splitlines()
+    assert lines[0] == "Total number of cells: 2"
+    assert lines[4].startswith("Fraction of cells with UMIs: ")
+    assert lines[5] == "MUT calls: 1"
+    assert lines[-1] == "min_mut_umis: 2"
 
 
 def test_cli_min_mut_umis(tmp_path):

@@ -82,7 +82,7 @@ params.outdir
 | `genotype` | Call: `MUT` if MUT ≥ `min_mut_umis` and p < 0.1; `WT` if MUT = 0 and WT ≥ 2, or MUT ≥ `min_mut_umis` and p ≥ 0.9; empty (NA) when undetermined |
 | `het_detect_lb` | For WT calls, 1 − 0.5^WT: a lower bound on the probability that a heterozygous cell would have shown a MUT UMI. Empty otherwise |
 
-- sample_targets.csv contains the error estimate of each target, pooled over cells, one row per target, written without an index column:
+- sample_targets.csv contains the error estimate and the limitations of each target, pooled over cells, one row per target, written without an index column:
 
 | Column | Meaning |
 | ------ | ------- |
@@ -96,10 +96,29 @@ params.outdir
 | `eps` | Error floor, `--error_floor` |
 | `P_s` | Error rate used for the calls, max(`q_hat`, `eps`) |
 | `floor_applied` | `True` when `P_s` is the floor, i.e. `q_hat` < `eps` or N = 0 |
+| `min_base_qual` | Base-quality filter applied to the target's reads: `--snv_min_base_quality` at an SNV, 0 at an indel |
+| `wt_reads` | Usable reads of the WT-labelled UMIs over all cells. Indel diagnostic: empty (NaN) for an SNV |
+| `wt_altlike_reads` | Of `wt_reads`, the reads matching the alt by the tolerant match: WT→ALT leakage at a repeat. Empty for an SNV |
+| `wt_altlike_frac` | `wt_altlike_reads` / `wt_reads`; empty for an SNV or when `wt_reads` = 0 |
+| `mixed_discarded` | Discarded UMIs (≥ n_min usable reads, no allele reaching n_min and f_min) with both REF and ALT reads |
+| `subnmin_umis` | UMIs covering the target with fewer than n_min usable reads, never labelled |
+| `subnmin_reads` | Usable reads of the sub-n_min UMIs |
+| `n_MUT` | Cells called MUT |
+| `n_WT` | Cells called WT |
+| `n_undet` | Cells left undetermined, including cells with no UMI at the target |
+| `n_MUT_single_umi` | MUT calls resting on a single MUT UMI (MUT = 1), the calls most exposed to contamination |
 
 - blaze.log: contains the statistics of the experiments, e.g. number of reads, high quality reads, number of cells and reads in polyT
 
-- genotype.log: contains some statistics of genotyping, such as genotyped cells, median UMIs per cell
+- genotype.log: contains statistics of genotyping. The first lines report the number of cells, the total and median UMIs per cell, the median number of genes covered per cell and the fraction of cells with UMIs. The next lines summarise the calls and their limitations:
+  - the MUT, WT and undetermined call totals
+  - the number of MUT calls with a single MUT UMI (m = 1), and their fraction of MUT calls
+  - the number of WT calls with k = 2, k = 3 and k ≥ 4 WT UMIs
+  - the median and minimum `het_detect_lb` over WT calls
+  - the targets at the error floor ε, their number out of all targets and their IDs
+  - the `min_mut_umis` value used
+
+  A statistic over no calls is reported as `nan`.
 
 - target.log: contains the enrichment efficiency
 

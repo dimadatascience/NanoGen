@@ -65,11 +65,45 @@ nextflow_workflow {
                 "chrF,1602,1602,T,-T,HP,0,0,0,0,0,0,0,0,${del}",
             ].collect { it.toString() }
 
-            // Snapshot of the calls, the per-target error table and the log.
+            // Per-target error and diagnostics, pooled over the cells above.
+            // min_base_qual is snv_min_base_quality (20) at SNVs, 0 at indels; the
+            // indel diagnostic (wt_reads, wt_altlike_reads, wt_altlike_frac) is
+            // empty at SNVs. SNV1's OTH UMI lifts it off the floor, and its two
+            // UMIs make it undetermined. Every MUT call but DEL's (m = 2) rests
+            // on a single MUT UMI.
+            assert path(workflow.out.targets.get(0).get(1)).readLines() == [
+                "target_id,gene,type,N,w,d,q_hat,eps,P_s,floor_applied,min_base_qual,wt_reads,wt_altlike_reads,wt_altlike_frac,mixed_discarded,subnmin_umis,subnmin_reads,n_MUT,n_WT,n_undet,n_MUT_single_umi",
+                "chrF:301:A>G,SNV1,SNV,3,1,2,0.16666666666666666,0.0001,0.16666666666666666,False,20,,,,0,2,4,0,0,3,0",
+                "chrF:701:A>G,SNV2,SNV,2,0,2,0.0,0.0001,0.0001,True,20,,,,0,1,0,1,0,2,1",
+                "chrF:1002:T>-TTA,DEL,INDEL,3,0,1,0.0,0.0001,0.0001,True,0,4,0,0.0,0,0,0,1,0,2,0",
+                "chrF:1301:A>+GTC,INS,INDEL,2,0,1,0.0,0.0001,0.0001,True,0,4,0,0.0,0,0,0,1,0,2,1",
+                "chrF:1602:T>-T,HP,INDEL,2,0,1,0.0,0.0001,0.0001,True,0,4,0,0.0,0,0,0,1,0,2,1",
+            ]
+
+            // The existing lines, then the call summary
+            assert path(workflow.out.gt_log.get(0).get(1)).readLines() == [
+                "Total number of cells: 3",
+                "Total number of UMIs: 12",
+                "Median UMI per cell: 3.0",
+                "Median genes covered per cell: 1.0",
+                "Fraction of cells with UMIs: 1.0",
+                "MUT calls: 4",
+                "WT calls: 0",
+                "Undetermined calls: 11",
+                "MUT calls with m = 1: 3",
+                "Fraction of MUT calls with m = 1: 0.75",
+                "WT calls with k = 2: 0",
+                "WT calls with k = 3: 0",
+                "WT calls with k >= 4: 0",
+                "Median het_detect_lb over WT calls: nan",
+                "Minimum het_detect_lb over WT calls: nan",
+                "Targets at the error floor (eps = 0.0001): 4 of 5: chrF:701:A>G, chrF:1002:T>-TTA, chrF:1301:A>+GTC, chrF:1602:T>-T",
+                "min_mut_umis: 1",
+            ]
+
+            // Snapshot of the calls
             assert snapshot(
                 path(workflow.out.genotypes.get(0).get(1)).readLines(),
-                path(workflow.out.targets.get(0).get(1)).readLines(),
-                path(workflow.out.gt_log.get(0).get(1)).readLines(),
             ).match()
         }
 

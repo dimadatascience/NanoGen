@@ -172,10 +172,6 @@ def test_every_cluster_is_exactly_one_of_sub_n_min_labelled_or_discarded(
 # part (tolerant match), OTH every other non-N read. Rule A applies unchanged.
 
 
-def test_indel_tolerance_is_one_bp():
-    assert cc.INDEL_K == 1
-
-
 @pytest.mark.parametrize(
     "entry, matches",
     [
@@ -211,8 +207,10 @@ def test_every_plus_entry_is_removed_from_ref_at_a_deletion_target_too():
     assert cc.allele_counts([("T", 5), ("+G", 2), ("-TTA", 3)], "T", "-TTA") == (3, 3, 2)
 
 
-def test_ref_never_goes_negative_when_insertion_anchors_are_not_ref():
-    assert cc.allele_counts([("C", 2), ("+GTC", 2)], "A", "+GTC") == (0, 2, 2)
+def test_insertion_reads_on_a_non_ref_anchor_are_counted_once():
+    # The 2 insertion reads carry C at the anchor: ALT, not also OTH
+    assert cc.allele_counts([("C", 2), ("+GTC", 2)], "A", "+GTC") == (0, 2, 0)
+    assert cc.allele_counts([("A", 1), ("C", 2), ("+GTC", 2)], "A", "+GTC") == (0, 2, 1)
 
 
 def test_indel_other_bases_count_as_oth_and_n_is_not_usable():
@@ -237,9 +235,9 @@ def test_homopolymer_deletion_uses_the_same_rules():
 @pytest.mark.parametrize(
     "alt, entries, label",
     [
-        # Formerly MUT by the len(alt) == 2 shortcut (> 2 reads and > 25 %)
+        # 3 ALT reads at 3 / 11 do not pass f_min, however short the alt
         ("-A", [("A", 8), ("-A", 3)], "WT"),
-        # Formerly MUT by the len(alt) > 3 shortcut (> 3 reads, no fraction test)
+        # 4 ALT reads at 4 / 104 do not pass f_min, however long the alt
         ("-ACC", [("A", 100), ("-ACC", 4)], "WT"),
         ("-ACC", [("A", 5), ("-ACC", 4)], cc.DISCARDED),
     ],
@@ -248,7 +246,7 @@ def test_indel_labels_follow_rule_a_with_no_shortcut(alt, entries, label):
     assert classify("A", alt, *entries, min_reads=2) == label
 
 
-def test_long_indel_entries_no_longer_match_by_substring():
+def test_indel_entries_beyond_k_count_as_oth_even_if_they_overlap_the_alt():
     # -AC is in -ACCTG but 3 bp shorter: OTH, not ALT
     assert cc.allele_counts([("A", 1), ("-AC", 4), ("-ACCTG", 1)], "A", "-ACCTG") == (1, 1, 4)
 
@@ -344,7 +342,7 @@ def test_count_targets_scores_every_alt_at_a_covered_site():
         # alt C: the T cluster is OTH; alt T: the C cluster is OTH
         [1, 1, 1, 5, 0, 0, 1, 1],
         [1, 1, 1, 5, 0, 0, 1, 1],
-        # 8 REF : 3 ALT is WT, no longer MUT by the len(alt) == 2 shortcut
+        # 8 REF : 3 ALT is WT by rule A
         [1, 0, 0, 11, 3, 0, 0, 0],
         [0, 0, 0, 0, 0, 0, 0, 0],
     ]

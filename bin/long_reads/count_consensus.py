@@ -176,20 +176,21 @@ def _indel_allele_counts(entries, ref, alt):
             a += read_count
         elif base in BASES or base.startswith(("+", "-")):
             o += read_count
-    # Insertion anchors that are not the reference base cannot be told apart
-    return max(r - insertions, 0), a, o
+    # Insertion reads whose anchor is not the reference base sit in OTH instead
+    off_ref = max(insertions - r, 0)
+    return r - insertions + off_ref, a, o - off_ref
 
 
-def indel_matches(entry, alt, k=INDEL_K):
+def indel_matches(entry, alt):
     """
     Tolerant indel match: entry is of the same type ('-' or '+') as alt, its
-    length is within k bp of alt's, and it agrees with alt over their shared
-    part (the shorter of the two sequences).
+    length is within INDEL_K bp of alt's, and it agrees with alt over their
+    shared part. bam-readcount reports an indel at its left end, so the shared
+    part is the prefix the length of the shorter sequence.
 
     Parameters:
         entry (str): A bam-readcount indel entry, e.g. '-TT'.
         alt (str): The target alt, e.g. '-TTA'.
-        k (int, optional): Length tolerance in bp. Defaults to INDEL_K.
 
     Returns:
         bool: Whether entry counts as ALT.
@@ -198,7 +199,7 @@ def indel_matches(entry, alt, k=INDEL_K):
         return False
     seq, target = entry[1:], alt[1:]
     shared = min(len(seq), len(target))
-    return abs(len(seq) - len(target)) <= k and seq[:shared] == target[:shared]
+    return abs(len(seq) - len(target)) <= INDEL_K and seq[:shared] == target[:shared]
 
 
 def consensus_label(r, a, o, min_fraction=0.6, min_reads=3):
@@ -271,17 +272,18 @@ def tally_clusters(clusters, ref, alt, min_fraction=0.6, min_reads=3):
               REF and ALT reads; 'subnmin_umis', the number of sub-n_min clusters,
               and 'subnmin_reads', their usable reads.
     """
-    counts = dict.fromkeys(["WT", "MUT", "OTH", DISCARDED] + COUNT_COLUMNS[3:], 0)
+    counts = dict.fromkeys(COUNT_COLUMNS + [DISCARDED], 0)
     for entries in clusters:
         r, a, o = allele_counts(entries, ref, alt)
+        usable = r + a + o
         cls = classify_counts(r, a, o, min_fraction, min_reads)
         if cls == SUBNMIN:
             counts["subnmin_umis"] += 1
-            counts["subnmin_reads"] += r + a + o
+            counts["subnmin_reads"] += usable
         else:
             counts[cls] += 1
         if cls == "WT":
-            counts["wt_reads"] += r + a + o
+            counts["wt_reads"] += usable
             counts["wt_altlike_reads"] += a
         elif cls == DISCARDED and r and a:
             counts["mixed_discarded"] += 1

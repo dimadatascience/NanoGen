@@ -165,8 +165,7 @@ For users of `main`, genotype-v2 changes the outputs, the parameters and the cal
 - **New `sample_targets.csv`.** The error rate is estimated per target, pooled over cells, instead of per cell, pooled over targets; this file reports it with each target's limitations (see Output Structure).
 - **Parameters.** `--baseline_error` is now `--error_floor`, `--min_base_quality` is now `--snv_min_base_quality`, and `--window_width` and `--min_dist_umi_collapsing` are retired; `--min_mut_umis` is new. Retired names still run with a warning. See Parameters.
 - **Tagged-BAM entry point.** `--input_type tagged_bam` starts a run from aligned BAMs with `CB`/`UB` tags (see Input).
-- **Calls differ from `main`.** UMIs are grouped per cell × target instead of per 100 bp window, so a molecule is counted once; indel alleles use the same consensus rule as SNVs; the error rate is per target. In the attribution ladder on PALM14E, MUT calls drop from 2,293 to 1,476 and 1,049 of 4,926 cells change at least one call; each change is attributed to its cause in [`docs/research/regression-palm14e.md`](docs/research/regression-palm14e.md).
-<!-- TODO(#41): replace the PALM14E figures above with the merge gate's final numbers. -->
+- **Calls differ from `main`.** UMIs are grouped per cell × target instead of per 100 bp window, so a molecule is counted once; indel alleles use the same consensus rule as SNVs; the error rate is per target. On PALM14E (4,947 cells, both runs from the same tagged BAM), MUT calls drop from 2,289 to 1,393 and 1,073 cells change at least one call; 174 calls flip MUT → WT and 5 WT → MUT. Each change is attributed to its cause, and genotype-v2 is checked against the spec, in [`docs/research/regression-palm14e.md`](docs/research/regression-palm14e.md).
 
 ## 🚀 Running the Pipeline
 

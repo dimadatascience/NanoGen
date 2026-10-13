@@ -14,8 +14,10 @@ D=/hpcnfs/scratch/P_DIMA_SCMSEQ/analysis/nanopore_enrichment/zhan_analysis/panel
 P=$D/../PALM14E
 REF=/hpcnfs/scratch/P_DIMA_SCMSEQ/resources/ref_standard/GRCh38_full_analysis_set_plus_decoy_hla.fa
 IMG=/hpcnfs/scratch/DIMA/zhan/scratch/nanogen_img_check/nxf_cache/ghcr.io-dimadatascience-nanogen@sha256-764368d67cdc01c3e40a83157154b97096b7b6ffb2ec740c4c8a4a408720f9ed.img
-H=$(awk -F'\t' '$3 ~ /^SPLIT_BAM/ && $4 == "COMPLETED" {print $2}' trace.txt | tail -1)
+H=$(awk -F'\t' '$3 ~ /:SPLIT_BAM / && $4 == "COMPLETED" {print $2}' trace.txt | tail -1)
+[ -n "$H" ] || { echo "no completed SPLIT_BAM in trace.txt"; exit 1; }
 CELLS=$(ls -d work/$H*)
+[ "$(ls "$CELLS"/*.bam | wc -l)" -gt 0 ] || { echo "no per-cell BAMs"; exit 1; }
 echo "v2: $(cat "$NG/.gate_rev")  per-cell BAMs: $(ls "$CELLS"/*.bam | wc -l)"
 R=$NG/docs/research
 export TMPDIR=${SLURM_TMPDIR:-/tmp}

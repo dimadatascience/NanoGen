@@ -159,7 +159,8 @@ def emu_cell(bam, bai, T, fasta):
                 seq = fasta.fetch(t.chr, w0, t.start - 1 + 50).upper()
                 for r in f.fetch(t.chr, max(0, lo), hi):
                     key = (r.query_name, r.reference_start)
-                    if key in reads:
+                    # a secondary / supplementary record can share the primary's name and start
+                    if key in reads and not r.flag & 0x904:
                         allele[key] = indel_allele(read_info(r, t, seq, w0)[0], t)
             if not reads:
                 continue
@@ -189,7 +190,7 @@ def partition(m):
     p = defaultdict(set)
     for key, c in m.items():
         p[c].add(key)
-    return {frozenset(v): c for v, c in p.items()}
+    return {frozenset(members): c for c, members in p.items()}
 
 
 def compare_cell(args):

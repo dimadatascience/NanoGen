@@ -12,8 +12,8 @@ umask 007
 G=$1; shift
 D=/hpcnfs/scratch/P_DIMA_SCMSEQ/analysis/nanopore_enrichment/zhan_analysis/panel2026/PALM14E_subset
 IMG=/hpcnfs/scratch/DIMA/zhan/scratch/nanogen_img_check/nxf_cache/ghcr.io-dimadatascience-nanogen@sha256-764368d67cdc01c3e40a83157154b97096b7b6ffb2ec740c4c8a4a408720f9ed.img
-head -1 "$D/palm14e_rerun.csv" | cut -d, -f1 | grep -qx barcode || { echo "unexpected header"; exit 1; }
-tail -n +2 "$D/palm14e_rerun.csv" | cut -d, -f1 | sort -u > "$G/all_cells.txt"
+awk -F, 'NR == 1 {for (i = 1; i <= NF; i++) if ($i == "cell") c = i; if (!c) exit 1; next} {print $c}' \
+  "$D/palm14e_rerun.csv" | sort -u > "$G/all_cells.txt"
 echo "cells available: $(wc -l < "$G/all_cells.txt")"
 for N in "$@"; do
   M=$G/mock$N

@@ -6,6 +6,9 @@ import re
 
 import pandas as pd
 
+from genotyping import target_id
+from umi_grouping import INDEL_K, read_group_target
+
 
 ##
 
@@ -96,15 +99,16 @@ def parse_clusters(line):
 
 def parse_readcount_line(line):
     """
-    Parse one bam-readcount -p line.
+    Parse one bam-readcount -p line, where each block follows its library name.
 
     Returns:
-        Tuple[str, int, str, List[List[Tuple[str, int]]]]: Chromosome, position,
-                                                          reference base and the
-                                                          per-cluster base counts.
+        Tuple[str, int, str, List[Tuple[str, List[Tuple[str, int]]]]]:
+            Chromosome, position, reference base and, per cluster, its library
+            and base counts (see parse_clusters).
     """
     fields = line.split("\t")
-    return fields[0], int(fields[1]), fields[2], parse_clusters(line)
+    libraries = re.findall(r"([^\t{}]+)\t\{", line)
+    return fields[0], int(fields[1]), fields[2], list(zip(libraries, parse_clusters(line)))
 
 
 ##
@@ -123,8 +127,6 @@ COUNT_COLUMNS = [
     "subnmin_umis", "subnmin_reads",
 ]
 BASES = ("A", "C", "G", "T")
-# k: an indel entry is ALT-like if its length is within INDEL_K bp of the target's
-INDEL_K = 1
 
 
 def allele_counts(entries, ref, alt):
@@ -166,7 +168,7 @@ def allele_counts(entries, ref, alt):
 
 def _indel_allele_counts(entries, ref, alt):
     """Tolerant indel matching; see allele_counts."""
-    r = a = o = insertions = 0
+    r = a = o = o_bases = insertions = 0
     for base, read_count in entries:
         if base.startswith("+"):
             insertions += read_count
@@ -174,11 +176,16 @@ def _indel_allele_counts(entries, ref, alt):
             r += read_count
         elif indel_matches(base, alt):
             a += read_count
-        elif base in BASES or base.startswith(("+", "-")):
+        elif base in BASES:
             o += read_count
-    # Insertion reads whose anchor is not the reference base sit in OTH instead
-    off_ref = max(insertions - r, 0)
-    return r - insertions + off_ref, a, o - off_ref
+            o_bases += read_count
+        elif base.startswith(("+", "-")):
+            o += read_count
+    # Insertion reads are also counted on their anchor base: take them off REF,
+    # then off a non-reference anchor in OTH. An N anchor was never counted.
+    off_r = min(insertions, r)
+    off_o = min(insertions - off_r, o_bases)
+    return r - off_r, a, o - off_o
 
 
 def indel_matches(entry, alt):
@@ -322,7 +329,12 @@ def count_targets(target, lines, min_fraction=0.6, min_reads=3):
                 if (chrom, start_pos, alt) in scored_snvs:
                     continue
                 scored_snvs.add((chrom, start_pos, alt))
-            counts = tally_clusters(clusters, ref, alt, min_fraction, min_reads)
+            # Reads in several bundles have a record per bundle: score only the
+            # clusters of this target's bundle
+            tid = target_id(chrom, start_pos, ref, alt)
+            bundle_clusters = [entries for library, entries in clusters
+                               if read_group_target(library) == tid]
+            counts = tally_clusters(bundle_clusters, ref, alt, min_fraction, min_reads)
             # Rows are matched on chr, start and alt only, as on main
             for val in COUNT_COLUMNS:
                 target.loc[

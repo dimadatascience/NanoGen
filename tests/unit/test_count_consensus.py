@@ -18,11 +18,15 @@ def block(*entries):
     return "{\t" + "\t".join(fields) + "\t}"
 
 
-def line(chrom, pos, ref, *blocks):
-    """One bam-readcount -p line with a named cluster per block."""
+def line(chrom, pos, ref, *blocks, target=None):
+    """One bam-readcount -p line with a named cluster per block, by default in
+    the bundle of the SNV chrom:pos:ref>C; target is a target ID, or a dict of
+    target ID -> blocks for a site in several bundles."""
+    bundles = target if isinstance(target, dict) else {target or f"{chrom}:{pos}:{ref}>C": blocks}
     parts = [chrom, str(pos), ref, "0"]
-    for i, b in enumerate(blocks):
-        parts += [f"'UMI{i}_{chrom}_0'", b]
+    for tid, bs in bundles.items():
+        for i, b in enumerate(bs):
+            parts += [f"{tid}_{i}", b]
     return "\t".join(parts) + "\n"
 
 
@@ -46,8 +50,8 @@ def test_parse_readcount_line_splits_site_and_clusters():
 
     assert (chrom, pos, ref) == ("chr1", 120, "A")
     assert clusters == [
-        [("=", 0), ("A", 5), ("C", 1), ("N", 0)],
-        [("=", 0), ("A", 0), ("-T", 3)],
+        ("chr1:120:A>C_0", [("=", 0), ("A", 5), ("C", 1), ("N", 0)]),
+        ("chr1:120:A>C_1", [("=", 0), ("A", 0), ("-T", 3)]),
     ]
 
 
@@ -60,7 +64,7 @@ def test_parse_clusters_without_braces_reads_the_whole_line_as_one_cluster():
 
 def test_parse_readcount_line_on_real_output():
     text = (
-        "chrT\t40\tA\t14\t'ACGTACGTACGT_chrT_0'\t{\t"
+        "chrT\t40\tA\t14\tchrT:40:A>-A_0\t{\t"
         "=:0:0.00:0.00:0.00:0:0:0.00:0.00:0.00:0:0.00:0.00:0.00\t"
         "A:0:0.00:0.00:0.00:0:0:0.00:0.00:0.00:0:0.00:0.00:0.00\t"
         "N:0:0.00:0.00:0.00:0:0:0.00:0.00:0.00:0:0.00:0.00:0.00\t"
@@ -68,7 +72,7 @@ def test_parse_readcount_line_on_real_output():
     )
 
     assert cc.parse_readcount_line(text) == (
-        "chrT", 40, "A", [[("=", 0), ("A", 0), ("N", 0), ("-A", 6)]]
+        "chrT", 40, "A", [("chrT:40:A>-A_0", [("=", 0), ("A", 0), ("N", 0), ("-A", 6)])]
     )
 
 
@@ -213,6 +217,13 @@ def test_insertion_reads_on_a_non_ref_anchor_are_counted_once():
     assert cc.allele_counts([("A", 1), ("C", 2), ("+GTC", 2)], "A", "+GTC") == (0, 2, 1)
 
 
+def test_insertion_reads_on_an_n_anchor_never_make_oth_negative():
+    # N is not counted, so there is nothing to take the insertion reads off
+    assert cc.allele_counts([("N", 2), ("+GTC", 2)], "A", "+GTC") == (0, 2, 0)
+    assert cc.allele_counts([("A", 1), ("N", 1), ("+GTC", 2)], "A", "+GTC") == (0, 2, 0)
+    assert cc.allele_counts([("C", 1), ("N", 1), ("+GTC", 2), ("-A", 1)], "A", "+GTC") == (0, 2, 1)
+
+
 def test_indel_other_bases_count_as_oth_and_n_is_not_usable():
     entries = [("=", 0), ("A", 4), ("C", 1), ("G", 1), ("N", 7), ("+T", 1)]
 
@@ -323,12 +334,11 @@ def targets():
 
 
 def test_count_targets_scores_every_alt_at_a_covered_site():
+    # Each alt of a multiallelic site has its own bundle, so its own clusters
+    clusters = [block(("A", 5)), block(("C", 4)), block(("T", 4)), block(("A", 1))]
     lines = [
-        line(
-            "chr1", 120, "A",
-            block(("A", 5)), block(("C", 4)), block(("T", 4)), block(("A", 1)),
-        ),
-        line("chr1", 300, "G", block(("G", 8), ("-G", 3))),
+        line("chr1", 120, "A", target={"chr1:120:A>C": clusters, "chr1:120:A>T": clusters}),
+        line("chr1", 300, "G", block(("G", 8), ("-G", 3)), target="chr1:300:G>-G"),
     ]
 
     table = cc.count_targets(targets(), lines, min_fraction=0.6, min_reads=2)
@@ -371,10 +381,13 @@ def test_count_targets_scores_snv_alts_on_the_first_line_and_indel_alts_on_the_l
         [["chr1", 300, 300, "G", "C", "S"], ["chr1", 300, 300, "G", "-G", "D"]],
         columns=["chr", "start", "end", "ref", "alt", "gene"],
     )
+    def both(*blocks):
+        return {"chr1:300:G>C": blocks, "chr1:300:G>-G": blocks}
+
     lines = [
         # Low-quality C bases and deletion anchors are dropped
-        line("chr1", 300, "G", block(("G", 4)), block(), block()),
-        line("chr1", 300, "G", block(("G", 4)), block(("C", 4)), block(("-G", 4))),
+        line("chr1", 300, "G", target=both(block(("G", 4)), block(), block())),
+        line("chr1", 300, "G", target=both(block(("G", 4)), block(("C", 4)), block(("-G", 4)))),
     ]
 
     table = cc.count_targets(t, lines, min_fraction=0.6, min_reads=2)
@@ -384,4 +397,21 @@ def test_count_targets_scores_snv_alts_on_the_first_line_and_indel_alts_on_the_l
     assert table[["WT", "MUT", "OTH", "subnmin_umis", "subnmin_reads"]].values.tolist() == [
         [1, 0, 0, 2, 0],
         [1, 1, 1, 0, 0],
+    ]
+
+
+def test_count_targets_scores_only_the_clusters_of_the_targets_bundle():
+    # Reads grouped for a nearby target also cover this site, in that target's
+    # read groups: they are another bundle's clusters and are not counted here
+    t = pd.DataFrame([["chr1", 120, 120, "A", "C", "G1"]],
+                     columns=["chr", "start", "end", "ref", "alt", "gene"])
+    lines = [line("chr1", 120, "A", target={
+        "chr1:120:A>C": [block(("C", 4))],
+        "chr1:150:G>T": [block(("A", 5)), block(("A", 1))],
+    })]
+
+    table = cc.count_targets(t, lines, min_fraction=0.6, min_reads=2)
+
+    assert table[["WT", "MUT", "OTH", "subnmin_umis", "subnmin_reads"]].values.tolist() == [
+        [0, 1, 0, 0, 0],
     ]

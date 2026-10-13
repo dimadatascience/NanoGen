@@ -162,6 +162,9 @@ def test_config_default_is_within_schema_bounds(name):
         ("min_mapping_quality", {"minimum": 0}),
         ("blaze_expect_cells", {"minimum": 1}),
         ("blaze_edit_distance", {"minimum": 0}),
+        ("umi_max_ld", {"minimum": 0}),
+        ("umi_ratio", {"minimum": 1}),
+        ("umi_small_reads", {"minimum": 0}),
     ],
 )
 def test_model_param_bounds(name, bounds):
@@ -171,6 +174,19 @@ def test_model_param_bounds(name, bounds):
 
 def test_min_fraction_default_is_0_6():
     assert CONFIG["min_fraction"] == 0.6
+
+
+def test_min_reads_default_is_3():
+    assert CONFIG["min_reads"] == 3
+
+
+@pytest.mark.parametrize("name, default", [
+    ("umi_max_ld", 2), ("umi_ratio", 2), ("umi_small_reads", 3),
+])
+def test_grouping_params_are_hidden_in_the_umi_grouping_group(name, default):
+    group = next(g for g in SCHEMA["definitions"].values() if g["title"] == "UMI grouping")
+    assert group["properties"][name]["hidden"] is True
+    assert CONFIG[name] == default
 
 
 def test_readme_table_lists_the_visible_params():

@@ -115,14 +115,14 @@ params.outdir
 | `--minimap2_input_genome` | — | — | Reference genome FASTA |
 | `--minimap2_mindex` | — | — | minimap2 index of the reference genome; required with `--input_type fastq` |
 | `--bedfile` | — | — | Tab-separated target file: chr, start, end, ref, alt, gene |
-| `--min_mapping_quality` | `20` | — | Minimum MAPQ for a read to enter UMI grouping |
-| `--min_reads` | `2` | n_min | Minimum usable reads supporting an allele to label a UMI cluster |
+| `--min_mapping_quality` | `20` | — | Minimum MAPQ for a primary mapped read to enter UMI grouping |
+| `--min_reads` | `3` | n_min | Minimum usable reads supporting an allele to label a UMI cluster |
 | `--min_fraction` | `0.6` | f_min | Minimum fraction of usable reads supporting an allele to label a UMI cluster, in (0.5, 1] |
 | `--snv_min_base_quality` | `20` | — | Minimum base quality (Phred) for a read to be usable at an SNV target |
 | `--error_floor` | `0.0001` | ε | Lower bound on the per-target error rate, in (0, 1) |
 | `--min_mut_umis` | `1` | m_min | Minimum number of MUT UMIs for a MUT call; set `2` to check results don't rest on single-UMI MUT calls |
 
-Hidden parameters, including the BLAZE options `--blaze_expect_cells` and `--blaze_edit_distance`, are listed by `--help --show_hidden_params`.
+Hidden parameters are listed by `--help --show_hidden_params`. They include the UMI grouping rule's thresholds `--umi_max_ld` (`2`), `--umi_ratio` (`2`) and `--umi_small_reads` (`3`), and the BLAZE options `--blaze_expect_cells` and `--blaze_edit_distance`.
 
 Retired parameters still run but log a warning and are ignored: `--baseline_error` is now `--error_floor`, `--min_base_quality` is now `--snv_min_base_quality`, and `--window_width` and `--min_dist_umi_collapsing` are no longer parameters.
 

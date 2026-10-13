@@ -1,7 +1,5 @@
 # Spec tests for consensus labelling (rule A, equation (1), on usable reads) and
-# the sub-n_min / labelled / discarded partition. The indel tests still pin
-# the legacy allele matching and shortcuts until the tolerant indel ALT ticket
-# replaces them.
+# the sub-n_min / labelled / discarded partition, with tolerant indel ALT.
 
 import itertools
 
@@ -31,7 +29,7 @@ def line(chrom, pos, ref, *blocks):
 def classify(ref, alt, *entries, min_fraction=0.6, min_reads=3):
     """Class of one cluster: a consensus label, sub-n_min or discarded."""
     r, a, o = cc.allele_counts(entries, ref, alt)
-    return cc.classify_counts(r, a, o, alt, min_fraction, min_reads)
+    return cc.classify_counts(r, a, o, min_fraction, min_reads)
 
 
 # bam-readcount line parser
@@ -154,7 +152,7 @@ def test_every_cluster_is_exactly_one_of_sub_n_min_labelled_or_discarded(
     min_reads, min_fraction
 ):
     for r, a, o in itertools.product(range(7), repeat=3):
-        cls = cc.classify_counts(r, a, o, "C", min_fraction, min_reads)
+        cls = cc.classify_counts(r, a, o, min_fraction, min_reads)
         usable = r + a + o
         qualifies = {
             label
@@ -169,60 +167,90 @@ def test_every_cluster_is_exactly_one_of_sub_n_min_labelled_or_discarded(
             assert cls == cc.DISCARDED
 
 
-# Indel targets: the legacy allele matching and shortcuts are kept until the
-# tolerant indel ALT ticket replaces them; rule A and the partition apply.
+# Indel targets: REF is the reference base minus every '+' entry, ALT the sum of
+# same-type entries within +-k bp that agree with the target over their shared
+# part (tolerant match), OTH every other non-N read. Rule A applies unchanged.
 
 
-def test_short_indel_mut_needs_more_than_two_reads_and_a_quarter():
-    # 3 / (8 + 3) = 0.27 > 0.25, with no f_min test
-    assert classify("A", "-A", ("A", 8), ("-A", 3), min_reads=2) == "MUT"
+def test_indel_tolerance_is_one_bp():
+    assert cc.INDEL_K == 1
 
 
-def test_short_indel_at_exactly_a_quarter_falls_back_to_rule_a():
-    # 3 / 12 = 0.25, then A at 9 / 12 = 0.75 passes f_min
-    assert classify("A", "-A", ("A", 9), ("-A", 3), min_reads=2) == "WT"
+@pytest.mark.parametrize(
+    "entry, matches",
+    [
+        ("-TT", True),  # 1 bp shorter
+        ("-TTA", True),  # exact
+        ("-TTAC", True),  # 1 bp longer
+        ("-GG", False),  # disagrees over the shared part
+        ("-TTACA", False),  # 2 bp longer
+        ("-T", False),  # 2 bp shorter
+        ("-TAA", False),  # same length, disagrees
+        ("+TTA", False),  # other type
+    ],
+)
+def test_tolerant_indel_match(entry, matches):
+    assert cc.indel_matches(entry, "-TTA") is matches
 
 
-def test_short_indel_with_two_reads_falls_back_to_rule_a():
-    assert classify("A", "-A", ("-A", 2), min_reads=2) == "MUT"
-    assert classify("A", "-A", ("-A", 2), min_reads=3) == cc.SUBNMIN
+def test_deletion_alt_sums_every_tolerant_entry():
+    entries = [("T", 1), ("-TT", 2), ("-TTA", 3), ("-TTAC", 1), ("-GG", 4)]
+
+    # -GG is OTH; T reads keep their REF count at a deletion target
+    assert cc.allele_counts(entries, "T", "-TTA") == (1, 6, 4)
 
 
-def test_short_indel_other_indels_count_as_oth():
-    # -AT is not the alt, so it counts as OTH, which rule A tests on o itself
-    assert classify("A", "-A", ("A", 1), ("-AT", 9), min_reads=2) == "OTH"
+def test_insertion_reads_are_removed_from_the_anchor_ref_count():
+    # bam-readcount counts an insertion read on its anchor base and in its '+' entry
+    entries = [("A", 9), ("+GTC", 3), ("+GT", 1), ("+CC", 2)]
+
+    assert cc.allele_counts(entries, "A", "+GTC") == (3, 4, 2)
 
 
-def test_three_char_indel_matches_by_substring_and_takes_the_max():
-    # -AC is in -ACG: alt count = max(2, 4) = 4, rule A only
-    assert classify("A", "-AC", ("A", 1), ("-AC", 2), ("-ACG", 4), min_reads=2) == "MUT"
+def test_every_plus_entry_is_removed_from_ref_at_a_deletion_target_too():
+    assert cc.allele_counts([("T", 5), ("+G", 2), ("-TTA", 3)], "T", "-TTA") == (3, 3, 2)
 
 
-def test_three_char_indel_has_no_shortcut():
-    # 4 reads at 4 / 9 would pass the len(alt) == 2 shortcut; here neither passes f_min
-    assert classify("A", "-AC", ("A", 5), ("-AC", 4), min_reads=2) == cc.DISCARDED
+def test_ref_never_goes_negative_when_insertion_anchors_are_not_ref():
+    assert cc.allele_counts([("C", 2), ("+GTC", 2)], "A", "+GTC") == (0, 2, 2)
 
 
-def test_long_indel_mut_needs_more_than_three_reads_and_no_fraction():
-    assert classify("A", "-ACC", ("A", 100), ("-ACC", 4), min_reads=2) == "MUT"
+def test_indel_other_bases_count_as_oth_and_n_is_not_usable():
+    entries = [("=", 0), ("A", 4), ("C", 1), ("G", 1), ("N", 7), ("+T", 1)]
+
+    assert cc.allele_counts(entries, "A", "-AC") == (3, 0, 3)
 
 
-def test_long_indel_with_three_reads_falls_back_to_rule_a():
-    assert classify("A", "-ACC", ("A", 100), ("-ACC", 3), min_reads=2) == "WT"
+def test_indel_repeated_entries_add_up():
+    assert cc.allele_counts([("A", 2), ("A", 1), ("-AC", 1), ("-AC", 2)], "A", "-AC") == (3, 3, 0)
 
 
-def test_long_indel_substring_match_takes_the_max_count():
-    # -AC and -ACCT both overlap -ACC; the larger, 4, enters the shortcut
-    assert classify("A", "-ACC", ("A", 100), ("-AC", 4), ("-ACCT", 2), min_reads=2) == "MUT"
+def test_homopolymer_deletion_uses_the_same_rules():
+    # -T in a T run: -TT is 1 bp longer and agrees, -TTT is 2 bp longer
+    entries = [("T", 2), ("-T", 3), ("-TT", 2), ("-TTT", 1), ("-G", 1)]
+
+    assert cc.allele_counts(entries, "T", "-T") == (2, 5, 2)
+    assert classify("T", "-T", *entries) == cc.DISCARDED  # 5 / 9 < f_min
+    assert classify("T", "-T", ("T", 1), ("-T", 3), ("-TT", 2)) == "MUT"
 
 
-def test_long_indel_short_entries_count_as_oth():
-    # +T and C are too short to match: r = 3, o = 3
-    assert classify("A", "-ACC", ("A", 3), ("+T", 2), ("C", 1), min_reads=2) == cc.DISCARDED
+@pytest.mark.parametrize(
+    "alt, entries, label",
+    [
+        # Formerly MUT by the len(alt) == 2 shortcut (> 2 reads and > 25 %)
+        ("-A", [("A", 8), ("-A", 3)], "WT"),
+        # Formerly MUT by the len(alt) > 3 shortcut (> 3 reads, no fraction test)
+        ("-ACC", [("A", 100), ("-ACC", 4)], "WT"),
+        ("-ACC", [("A", 5), ("-ACC", 4)], cc.DISCARDED),
+    ],
+)
+def test_indel_labels_follow_rule_a_with_no_shortcut(alt, entries, label):
+    assert classify("A", alt, *entries, min_reads=2) == label
 
 
-def test_indel_shortcut_never_labels_a_sub_n_min_cluster():
-    assert classify("A", "-ACC", ("-ACC", 4), min_reads=5) == cc.SUBNMIN
+def test_long_indel_entries_no_longer_match_by_substring():
+    # -AC is in -ACCTG but 3 bp shorter: OTH, not ALT
+    assert cc.allele_counts([("A", 1), ("-AC", 4), ("-ACCTG", 1)], "A", "-ACCTG") == (1, 1, 4)
 
 
 # Cluster tally
@@ -241,7 +269,27 @@ def test_tally_puts_every_covering_cluster_in_exactly_one_class():
     counts = cc.tally_clusters(clusters, "A", "C", min_fraction=0.6, min_reads=3)
 
     assert counts == {
-        "WT": 1, "MUT": 1, "OTH": 1, "discarded": 1, "subnmin_umis": 2, "subnmin_reads": 2,
+        "WT": 1, "MUT": 1, "OTH": 1, "discarded": 1,
+        "wt_reads": 5, "wt_altlike_reads": 0, "mixed_discarded": 1,
+        "subnmin_umis": 2, "subnmin_reads": 2,
+    }
+
+
+def test_tally_reports_alt_like_reads_in_wt_clusters_and_mixed_discarded_clusters():
+    clusters = [
+        [("T", 4), ("-TT", 1)],  # WT, 1 ALT-like read of 5
+        [("T", 3), ("-TTA", 1), ("G", 1)],  # WT at 3 / 5, 1 ALT-like read of 5
+        [("T", 2), ("-TTAC", 2)],  # discarded, REF and ALT: mixed
+        [("T", 2), ("C", 2)],  # discarded, no ALT: not mixed
+        [("-TTA", 3)],  # MUT
+    ]
+
+    counts = cc.tally_clusters(clusters, "T", "-TTA", min_fraction=0.6, min_reads=3)
+
+    assert counts == {
+        "WT": 2, "MUT": 1, "OTH": 0, "discarded": 2,
+        "wt_reads": 10, "wt_altlike_reads": 2, "mixed_discarded": 1,
+        "subnmin_umis": 0, "subnmin_reads": 0,
     }
 
 
@@ -255,7 +303,9 @@ def test_consensus_on_umi_tallies_a_bam_readcount_line():
     )
 
     assert cc.consensus_on_umi(text, "A", "C", 0.6, 2) == {
-        "WT": 1, "MUT": 2, "OTH": 0, "discarded": 0, "subnmin_umis": 1, "subnmin_reads": 1,
+        "WT": 1, "MUT": 2, "OTH": 0, "discarded": 0,
+        "wt_reads": 5, "wt_altlike_reads": 0, "mixed_discarded": 0,
+        "subnmin_umis": 1, "subnmin_reads": 1,
     }
 
 
@@ -287,14 +337,16 @@ def test_count_targets_scores_every_alt_at_a_covered_site():
 
     assert table.columns.tolist() == [
         "chr", "start", "end", "ref", "alt", "gene",
-        "WT", "MUT", "OTH", "subnmin_umis", "subnmin_reads",
+        "WT", "MUT", "OTH", "wt_reads", "wt_altlike_reads", "mixed_discarded",
+        "subnmin_umis", "subnmin_reads",
     ]
-    assert table[["WT", "MUT", "OTH", "subnmin_umis", "subnmin_reads"]].values.tolist() == [
+    assert table[cc.COUNT_COLUMNS].values.tolist() == [
         # alt C: the T cluster is OTH; alt T: the C cluster is OTH
-        [1, 1, 1, 1, 1],
-        [1, 1, 1, 1, 1],
-        [0, 1, 0, 0, 0],
-        [0, 0, 0, 0, 0],
+        [1, 1, 1, 5, 0, 0, 1, 1],
+        [1, 1, 1, 5, 0, 0, 1, 1],
+        # 8 REF : 3 ALT is WT, no longer MUT by the len(alt) == 2 shortcut
+        [1, 0, 0, 11, 3, 0, 0, 0],
+        [0, 0, 0, 0, 0, 0, 0, 0],
     ]
 
 
@@ -303,7 +355,7 @@ def test_count_targets_skips_lines_whose_ref_does_not_match():
 
     table = cc.count_targets(targets(), lines, min_fraction=0.6, min_reads=2)
 
-    assert table[["WT", "MUT", "OTH", "subnmin_umis", "subnmin_reads"]].values.sum() == 0
+    assert table[cc.COUNT_COLUMNS].values.sum() == 0
 
 
 def test_count_targets_does_not_mutate_its_input():

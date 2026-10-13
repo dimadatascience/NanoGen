@@ -118,8 +118,13 @@ def parse_readcount_line(line):
 
 SUBNMIN = "sub-n_min"
 DISCARDED = "discarded"
-COUNT_COLUMNS = ["WT", "MUT", "OTH", "subnmin_umis", "subnmin_reads"]
+COUNT_COLUMNS = [
+    "WT", "MUT", "OTH", "wt_reads", "wt_altlike_reads", "mixed_discarded",
+    "subnmin_umis", "subnmin_reads",
+]
 BASES = ("A", "C", "G", "T")
+# k: an indel entry is ALT-like if its length is within INDEL_K bp of the target's
+INDEL_K = 1
 
 
 def allele_counts(entries, ref, alt):
@@ -131,9 +136,11 @@ def allele_counts(entries, ref, alt):
     '+' entries are skipped because their reads are already in their base count.
     Base quality is filtered upstream, by bam-readcount -b.
 
-    At an indel target, the legacy matching is kept until tolerant indel ALT
-    replaces it: REF is the reference base, ALT the exact alt (len(alt) <= 2)
-    or the largest entry overlapping it by substring, OTH every other non-N entry.
+    At an indel target, REF is the reference base minus every '+' entry, as
+    bam-readcount counts an insertion read both on its anchor base and in its
+    '+' entry. ALT is the sum of the entries matching the alt (see
+    indel_matches), and OTH every other non-N read. There is no base-quality
+    filter at indel targets.
 
     Parameters:
         entries (Iterable[Tuple[str, int]]): (base, read count) of the cluster.
@@ -158,18 +165,40 @@ def allele_counts(entries, ref, alt):
 
 
 def _indel_allele_counts(entries, ref, alt):
-    """Legacy indel matching; see allele_counts."""
-    r = a = o = 0
+    """Tolerant indel matching; see allele_counts."""
+    r = a = o = insertions = 0
     for base, read_count in entries:
+        if base.startswith("+"):
+            insertions += read_count
         if base == ref:
-            r = read_count
-        elif len(alt) <= 2 and base == alt:
-            a = read_count
-        elif len(alt) > 2 and len(base) > 2 and (base in alt or alt in base):
-            a = max(read_count, a)
-        elif base != "N":
+            r += read_count
+        elif indel_matches(base, alt):
+            a += read_count
+        elif base in BASES or base.startswith(("+", "-")):
             o += read_count
-    return r, a, o
+    # Insertion anchors that are not the reference base cannot be told apart
+    return max(r - insertions, 0), a, o
+
+
+def indel_matches(entry, alt, k=INDEL_K):
+    """
+    Tolerant indel match: entry is of the same type ('-' or '+') as alt, its
+    length is within k bp of alt's, and it agrees with alt over their shared
+    part (the shorter of the two sequences).
+
+    Parameters:
+        entry (str): A bam-readcount indel entry, e.g. '-TT'.
+        alt (str): The target alt, e.g. '-TTA'.
+        k (int, optional): Length tolerance in bp. Defaults to INDEL_K.
+
+    Returns:
+        bool: Whether entry counts as ALT.
+    """
+    if entry[:1] != alt[0]:
+        return False
+    seq, target = entry[1:], alt[1:]
+    shared = min(len(seq), len(target))
+    return abs(len(seq) - len(target)) <= k and seq[:shared] == target[:shared]
 
 
 def consensus_label(r, a, o, min_fraction=0.6, min_reads=3):
@@ -194,13 +223,13 @@ def consensus_label(r, a, o, min_fraction=0.6, min_reads=3):
     return None
 
 
-def classify_counts(r, a, o, alt, min_fraction=0.6, min_reads=3):
+def classify_counts(r, a, o, min_fraction=0.6, min_reads=3):
     """
     Class of a covering cluster: sub-n_min, a consensus label or discarded.
+    The rule is the same at SNV and indel targets.
 
     Parameters:
         r, a, o (int): REF, ALT and OTH usable reads (see allele_counts).
-        alt (str): The alternative allele, for the legacy indel shortcuts.
         min_fraction (float, optional): f_min. Defaults to 0.6.
         min_reads (int, optional): n_min. Defaults to 3.
 
@@ -210,11 +239,6 @@ def classify_counts(r, a, o, alt, min_fraction=0.6, min_reads=3):
     """
     if r + a + o < min_reads:
         return SUBNMIN
-    # Legacy indel shortcuts, kept until tolerant indel ALT removes them
-    if len(alt) == 2 and a > 2 and a / (r + a) > 0.25:
-        return "MUT"
-    if len(alt) > 3 and a > 3:
-        return "MUT"
     return consensus_label(r, a, o, min_fraction, min_reads) or DISCARDED
 
 
@@ -241,19 +265,26 @@ def tally_clusters(clusters, ref, alt, min_fraction=0.6, min_reads=3):
     Tally the classes of parsed clusters (see parse_clusters) at one target.
 
     Returns:
-        Dict: Number of clusters labelled 'WT', 'MUT' and 'OTH' and 'discarded',
-              plus 'subnmin_umis', the number of sub-n_min clusters, and
-              'subnmin_reads', their usable reads.
+        Dict: Number of clusters labelled 'WT', 'MUT' and 'OTH' and 'discarded';
+              'wt_reads', the usable reads of WT clusters, and 'wt_altlike_reads',
+              their ALT reads; 'mixed_discarded', the discarded clusters with both
+              REF and ALT reads; 'subnmin_umis', the number of sub-n_min clusters,
+              and 'subnmin_reads', their usable reads.
     """
-    counts = {"WT": 0, "MUT": 0, "OTH": 0, DISCARDED: 0, "subnmin_umis": 0, "subnmin_reads": 0}
+    counts = dict.fromkeys(["WT", "MUT", "OTH", DISCARDED] + COUNT_COLUMNS[3:], 0)
     for entries in clusters:
         r, a, o = allele_counts(entries, ref, alt)
-        cls = classify_counts(r, a, o, alt, min_fraction, min_reads)
+        cls = classify_counts(r, a, o, min_fraction, min_reads)
         if cls == SUBNMIN:
             counts["subnmin_umis"] += 1
             counts["subnmin_reads"] += r + a + o
         else:
             counts[cls] += 1
+        if cls == "WT":
+            counts["wt_reads"] += r + a + o
+            counts["wt_altlike_reads"] += a
+        elif cls == DISCARDED and r and a:
+            counts["mixed_discarded"] += 1
     return counts
 
 
@@ -268,8 +299,7 @@ def count_targets(target, lines, min_fraction=0.6, min_reads=3):
         min_reads (int, optional): n_min. Defaults to 3.
 
     Returns:
-        pd.DataFrame: A copy of target with the COUNT_COLUMNS: 'WT', 'MUT' and
-                      'OTH' labelled clusters, 'subnmin_umis' and 'subnmin_reads'.
+        pd.DataFrame: A copy of target with the COUNT_COLUMNS (see tally_clusters).
     """
     target = target.copy()
     target[COUNT_COLUMNS] = 0

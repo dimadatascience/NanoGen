@@ -65,7 +65,7 @@ SCENARIOS = (
     "del_k",  # one DEL molecule: 2 exact, 2 one base shorter, 1 one base longer, 1 starting 1 bp right
     "del_lowq",  # an exact DEL molecule whose anchor base has quality 5
     "ins",  # an INS molecule
-    "hp_del",  # a homopolymer 1 bp deletion molecule
+    "hp_del",  # a homopolymer 1 bp deletion molecule: 2 exact reads, 2 one base longer
     "snv_lowq",  # an ALT molecule at SNV2 whose SNV base has quality 5
 )
 
@@ -211,7 +211,8 @@ def molecules(contig, bed, oth, umis):
     yield CELL_MIX, "wt", "snv2", umis.new(CELL_MIX), ref_reads("SNV2", 4)
     yield CELL_MIX, "ins", "ins", umis.new(CELL_MIX), indel_reads("INS", [site["INS"][2]] * 4)
     yield CELL_MIX, "wt", "ins", umis.new(CELL_MIX), ref_reads("INS", 4)
-    yield CELL_MIX, "hp_del", "hp", umis.new(CELL_MIX), indel_reads("HP", [site["HP"][2]] * 4)
+    hp = site["HP"][2]
+    yield CELL_MIX, "hp_del", "hp", umis.new(CELL_MIX), indel_reads("HP", [hp, hp, hp + "T", hp + "T"])
     yield CELL_MIX, "wt", "hp", umis.new(CELL_MIX), ref_reads("HP", 4)
 
     # Cell with the deletion scenarios and the low-quality SNV base

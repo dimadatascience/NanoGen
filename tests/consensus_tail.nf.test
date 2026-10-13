@@ -31,31 +31,35 @@ nextflow_workflow {
             // SNV1 (AAACCCAAGAAACACT): wt is WT; the ld2_pair molecules and sec_supp
             // are MUT; oth (T) is OTH, tested on its own count; subnmin is a
             // sub-n_min cluster with 2 usable reads.
-            // DEL (AAACCCAAGAAACCCA): del_k is discarded under main's indel
-            // matching, and del_lowq is MUT, its quality-5 anchor kept by the
-            // unfiltered indel pass. snv_lowq is a sub-n_min cluster at SNV2 with no
-            // usable read, its bases being under -b 20.
-            def header = "chr,start,end,ref,alt,gene,WT,MUT,OTH,subnmin_umis,subnmin_reads,barcode"
+            // DEL (AAACCCAAGAAACCCA): del_k is MUT by tolerant ALT, -TTA x2, -TT x2
+            // and -TTAC x1 summed against the 1 bp right-shifted read's REF base
+            // (5 : 1); del_lowq is MUT, its quality-5 anchor kept by the unfiltered
+            // indel pass. snv_lowq is a sub-n_min cluster at SNV2 with no usable
+            // read, its bases being under -b 20.
+            // INS (AAACCCAAGAAACCAT): ins is MUT once its +GTC reads are taken off
+            // the anchor's REF count (0 : 4); HP: hp_del is MUT, -T x2 and -TT x2
+            // summed. Every WT cluster is the wt molecule's 4 REF reads.
+            def header = "chr,start,end,ref,alt,gene,WT,MUT,OTH,wt_reads,wt_altlike_reads,mixed_discarded,subnmin_umis,subnmin_reads,barcode"
             def snv  = "AAACCCAAGAAACACT"
             def mix  = "AAACCCAAGAAACCAT"
             def del  = "AAACCCAAGAAACCCA"
             assert path(workflow.out.counts.get(0).get(1)).linesGzip == [
                 header,
-                "chrF,301,301,A,G,SNV1,1,3,1,1,2,${snv}",
-                "chrF,701,701,A,G,SNV2,0,0,0,0,0,${snv}",
-                "chrF,1002,1002,T,-TTA,DEL,0,0,0,0,0,${snv}",
-                "chrF,1301,1301,A,+GTC,INS,0,0,0,0,0,${snv}",
-                "chrF,1602,1602,T,-T,HP,0,0,0,0,0,${snv}",
-                "chrF,301,301,A,G,SNV1,0,0,0,0,0,${mix}",
-                "chrF,701,701,A,G,SNV2,1,2,0,0,0,${mix}",
-                "chrF,1002,1002,T,-TTA,DEL,0,0,0,0,0,${mix}",
-                "chrF,1301,1301,A,+GTC,INS,1,1,0,0,0,${mix}",
-                "chrF,1602,1602,T,-T,HP,1,1,0,0,0,${mix}",
-                "chrF,301,301,A,G,SNV1,0,0,0,0,0,${del}",
-                "chrF,701,701,A,G,SNV2,0,0,0,1,0,${del}",
-                "chrF,1002,1002,T,-TTA,DEL,1,1,0,0,0,${del}",
-                "chrF,1301,1301,A,+GTC,INS,0,0,0,0,0,${del}",
-                "chrF,1602,1602,T,-T,HP,0,0,0,0,0,${del}",
+                "chrF,301,301,A,G,SNV1,1,3,1,4,0,0,1,2,${snv}",
+                "chrF,701,701,A,G,SNV2,0,0,0,0,0,0,0,0,${snv}",
+                "chrF,1002,1002,T,-TTA,DEL,0,0,0,0,0,0,0,0,${snv}",
+                "chrF,1301,1301,A,+GTC,INS,0,0,0,0,0,0,0,0,${snv}",
+                "chrF,1602,1602,T,-T,HP,0,0,0,0,0,0,0,0,${snv}",
+                "chrF,301,301,A,G,SNV1,0,0,0,0,0,0,0,0,${mix}",
+                "chrF,701,701,A,G,SNV2,1,2,0,4,0,0,0,0,${mix}",
+                "chrF,1002,1002,T,-TTA,DEL,0,0,0,0,0,0,0,0,${mix}",
+                "chrF,1301,1301,A,+GTC,INS,1,1,0,4,0,0,0,0,${mix}",
+                "chrF,1602,1602,T,-T,HP,1,1,0,4,0,0,0,0,${mix}",
+                "chrF,301,301,A,G,SNV1,0,0,0,0,0,0,0,0,${del}",
+                "chrF,701,701,A,G,SNV2,0,0,0,0,0,0,1,0,${del}",
+                "chrF,1002,1002,T,-TTA,DEL,1,2,0,4,0,0,0,0,${del}",
+                "chrF,1301,1301,A,+GTC,INS,0,0,0,0,0,0,0,0,${del}",
+                "chrF,1602,1602,T,-T,HP,0,0,0,0,0,0,0,0,${del}",
             ].collect { it.toString() }
 
             // Snapshot of the calls, the per-target error table and the log.
@@ -128,13 +132,13 @@ nextflow_workflow {
             // The SNV rows of the single-pass (-b snv_min_base_quality) run, at the
             // default n_min = 2: subnmin's 2-read cluster is WT at SNV1
             assert path(workflow.out.counts.get(0).get(1)).linesGzip == [
-                "chr,start,end,ref,alt,gene,WT,MUT,OTH,subnmin_umis,subnmin_reads,barcode",
-                "chrF,301,301,A,G,SNV1,2,3,1,0,0,AAACCCAAGAAACACT",
-                "chrF,701,701,A,G,SNV2,0,0,0,0,0,AAACCCAAGAAACACT",
-                "chrF,301,301,A,G,SNV1,0,0,0,0,0,AAACCCAAGAAACCAT",
-                "chrF,701,701,A,G,SNV2,1,2,0,0,0,AAACCCAAGAAACCAT",
-                "chrF,301,301,A,G,SNV1,0,0,0,0,0,AAACCCAAGAAACCCA",
-                "chrF,701,701,A,G,SNV2,0,0,0,1,0,AAACCCAAGAAACCCA",
+                "chr,start,end,ref,alt,gene,WT,MUT,OTH,wt_reads,wt_altlike_reads,mixed_discarded,subnmin_umis,subnmin_reads,barcode",
+                "chrF,301,301,A,G,SNV1,2,3,1,6,0,0,0,0,AAACCCAAGAAACACT",
+                "chrF,701,701,A,G,SNV2,0,0,0,0,0,0,0,0,AAACCCAAGAAACACT",
+                "chrF,301,301,A,G,SNV1,0,0,0,0,0,0,0,0,AAACCCAAGAAACCAT",
+                "chrF,701,701,A,G,SNV2,1,2,0,4,0,0,0,0,AAACCCAAGAAACCAT",
+                "chrF,301,301,A,G,SNV1,0,0,0,0,0,0,0,0,AAACCCAAGAAACCCA",
+                "chrF,701,701,A,G,SNV2,0,0,0,0,0,0,1,0,AAACCCAAGAAACCCA",
             ]
         }
 

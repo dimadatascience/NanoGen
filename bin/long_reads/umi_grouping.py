@@ -4,7 +4,8 @@
 Only primary mapped records (no flag in 0x904) with MAPQ >= min_mapq are used.
 A read joins the bundle of every target it reaches: at an SNV, its alignment
 covers the site; at an indel, its reference span, deletions included, overlaps
-the target +-INDEL_K bp. There is no position term.
+the target +-INDEL_K bp. A skipped intron (N) is not part of either. There is
+no position term.
 
 Within a bundle, UMI a absorbs b if LD(a, b) <= max_ld and either
   n_a >= ratio * n_b - 1                (directional ratio), or
@@ -167,11 +168,40 @@ def is_primary_mapped(read, min_mapq):
     return not read.flag & NOT_PRIMARY_MAPPED and read.mapping_quality >= min_mapq
 
 
+def reference_spans(read):
+    """
+    The read's alignment on the reference as 0-based, half-open intervals:
+    aligned bases and deletions, split at each skipped intron (N).
+    """
+    spans, start, pos = [], read.reference_start, read.reference_start
+    for op, length in read.cigartuples:
+        if op in (0, 2, 7, 8):  # M, D, =, X
+            pos += length
+        elif op == 3:  # N
+            if pos > start:
+                spans.append((start, pos))
+            pos += length
+            start = pos
+    if pos > start:
+        spans.append((start, pos))
+    return spans
+
+
 def in_bundle(read, target):
-    """Whether a read's reference span, deletions included, overlaps the target's bundle."""
-    return (read.reference_name == target.chrom
-            and read.reference_start < target.hi
-            and read.reference_end > target.lo)
+    """Whether a read's reference span, deletions included and introns not,
+    overlaps the target's bundle."""
+    return read.reference_name == target.chrom and any(
+        start < target.hi and end > target.lo for start, end in reference_spans(read))
+
+
+def read_group(tid, cluster):
+    """Name of a cluster's read group (ID and LB) and MI tag: <target_id>_<cluster ID>."""
+    return f"{tid}_{cluster}"
+
+
+def read_group_target(name):
+    """The target ID of a read group named by read_group."""
+    return name.rsplit("_", 1)[0]
 
 
 def group_reads(reads, targets, *, min_mapq, max_ld, ratio, small_reads):
@@ -201,30 +231,30 @@ def group_reads(reads, targets, *, min_mapq, max_ld, ratio, small_reads):
             yield tid, clusters[r.get_tag("UB")], r
 
 
-def write_grouped_bam(input, bed, output, *, min_mapq, max_ld, ratio, small_reads):
+def write_grouped_bam(bam, bed, output, *, min_mapq, max_ld, ratio, small_reads):
     """
     Write a cell's grouped reads for bam-readcount -p: one record per read and
-    bundle, in a read group per cluster named <target_id>_<cluster ID> (ID and
-    LB), also set as the MI tag. The output is coordinate-sorted and indexed.
+    bundle, in a read group per cluster (ID and LB; see read_group), also set
+    as the MI tag. The output is coordinate-sorted and indexed.
     """
-    with pysam.AlignmentFile(str(input), "rb", check_sq=False) as f:
+    with pysam.AlignmentFile(str(bam), "rb", check_sq=False) as f:
         header = f.header.to_dict()
         grouped = list(group_reads(f, read_targets(bed), min_mapq=min_mapq, max_ld=max_ld,
                                    ratio=ratio, small_reads=small_reads))
 
     # Read groups by target, then cluster ID
     order = {tid: i for i, tid in enumerate(dict.fromkeys(tid for tid, _, _ in grouped))}
-    clusters = sorted({(order[tid], c, tid) for tid, c, _ in grouped})
-    cell = Path(input).name.split(".")[0]
+    names = [read_group(tid, c) for _, c, tid in sorted({(order[tid], c, tid) for tid, c, _ in grouped})]
+    cell = Path(bam).name.split(".")[0]
     header["HD"] = {**header.get("HD", {"VN": "1.6"}), "SO": "coordinate"}
-    header["RG"] = [{"ID": f"{tid}_{c}", "LB": f"{tid}_{c}", "SM": cell} for _, c, tid in clusters]
+    header["RG"] = [{"ID": name, "LB": name, "SM": cell} for name in names]
     out_header = pysam.AlignmentHeader.from_dict(header)
 
     records = []
     for tid, c, read in grouped:
         record = pysam.AlignedSegment.from_dict(read.to_dict(), out_header)
-        record.set_tag("RG", f"{tid}_{c}", "Z")
-        record.set_tag("MI", f"{tid}_{c}", "Z")
+        record.set_tag("RG", read_group(tid, c), "Z")
+        record.set_tag("MI", read_group(tid, c), "Z")
         records.append(record)
     records.sort(key=lambda r: (r.reference_id, r.reference_start))
 

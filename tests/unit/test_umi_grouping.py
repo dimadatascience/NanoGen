@@ -247,6 +247,12 @@ def test_target_id_is_chr_start_ref_alt():
     assert target(1002, "T", "-TTA").target_id == "chr1:1002:T>-TTA"
 
 
+@pytest.mark.parametrize("tid", ["chr4:54733160:GAT>-GAT", "chrUn_KI270742v1:5:A>C"])
+def test_read_group_names_give_back_their_target(tid):
+    assert ug.read_group(tid, 12) == f"{tid}_12"
+    assert ug.read_group_target(ug.read_group(tid, 12)) == tid
+
+
 @pytest.mark.parametrize("flag", [0x4, 0x100, 0x800, 0x904])
 def test_unmapped_secondary_and_supplementary_records_are_dropped(flag):
     assert not ug.is_primary_mapped(read(0, flag=flag), min_mapq=20)
@@ -303,6 +309,21 @@ def test_indel_bundle_counts_deleted_bases_in_the_reference_span():
     assert not ug.in_bundle(read(900, "50M49D1M"), deletion)  # span ends on 999
     assert ug.in_bundle(read(900, "50M50D1M"), deletion)  # span ends on 1000
     assert ug.in_bundle(read(900, "50M200D50M"), deletion)  # deletion over the target
+
+
+def test_an_intron_over_the_site_is_not_coverage():
+    # minimap2 -ax splice: N skips an intron, which is not part of the alignment
+    snv = target(501, "A", "G")  # 0-based 500
+    assert not ug.in_bundle(read(400, "50M200N50M"), snv)  # 400..449, 650..699
+    assert ug.in_bundle(read(400, "50M50N50M"), snv)  # second block starts on 500
+    assert not ug.in_bundle(read(400, "50M51N50M"), snv)  # ... or on 501
+    assert ug.in_bundle(read(400, "50M10D60M"), snv)  # a deletion is
+
+
+def test_an_intron_over_an_indel_target_is_not_in_its_reference_span():
+    deletion = target(1002, "T", "-TTA")  # bundle 1000..1004
+    assert not ug.in_bundle(read(900, "50M300N50M"), deletion)
+    assert ug.in_bundle(read(900, "50M51N50M"), deletion)  # 1001.. after the intron
 
 
 def test_a_molecule_is_one_cluster_however_far_apart_its_reads_start():

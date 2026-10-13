@@ -57,12 +57,6 @@ def test_parse_readcount_line_splits_site_and_clusters():
     ]
 
 
-def test_library_target_is_the_read_group_name_without_the_cluster_id():
-    assert cc.library_target("chr4:54733160:GAT>-GAT_12") == "chr4:54733160:GAT>-GAT"
-    # Underscores in the chromosome name are kept
-    assert cc.library_target("chrUn_KI270742v1:5:A>C_0") == "chrUn_KI270742v1:5:A>C"
-
-
 def test_parse_clusters_without_braces_reads_the_whole_line_as_one_cluster():
     # Fields without a colon (chrom, pos, ref, depth) are skipped
     assert cc.parse_clusters("chr1\t120\tA\t6\tA:5:60.00\tC:1:60.00\n") == [

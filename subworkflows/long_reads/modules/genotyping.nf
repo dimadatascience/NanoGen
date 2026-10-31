@@ -13,6 +13,7 @@ process GENOTYPING {
  
     input:
     tuple val(sample), path(counts)
+    path negative_cells  // CSV (sample, cell) of negative-control cells, or [] for none
  
     output:
     tuple val(sample), path("${sample}.csv"), emit: genotypes
@@ -20,8 +21,9 @@ process GENOTYPING {
     tuple val(sample), path("genotype.log"), emit: log
  
     script:
+    def negative = negative_cells ? "--negative_cells ${negative_cells} --sample ${sample}" : ""
     """
-    python ${baseDir}/bin/long_reads/genotyping.py --input ${counts} --output ${sample}.csv --targets_output ${sample}_targets.csv --error_floor ${params.error_floor} --min_mut_umis ${params.min_mut_umis} --snv_min_base_quality ${params.snv_min_base_quality}
+    python ${baseDir}/bin/long_reads/genotyping.py --input ${counts} --output ${sample}.csv --targets_output ${sample}_targets.csv --error_floor ${params.error_floor} --min_mut_umis ${params.min_mut_umis} --snv_min_base_quality ${params.snv_min_base_quality} ${negative}
     """
 
     stub:

@@ -28,17 +28,19 @@ workflow long_reads {
 5. **SPLIT_BAM**: Splits BAMs by cell barcode and reports on-target reads.
 6. **CONSENSUS**: Groups reads per cell × target into consensus UMIs and labels each WT, MUT or OTH.
 7. **COLLAPSE**: Gathers the consensus UMI counts of all cells of a sample.
-8. **GENOTYPING**: Estimates the error rate of each target and calls each cell × target MUT, WT or undetermined.
+8. **GENOTYPING**: Estimates the error rate and the contamination rate of each target and calls each cell × target MUT, WT or undetermined.
 
 ## 🧮 Genotyping model
 
 The model is specified in [`docs/genotyping/genotyping.pdf`](docs/genotyping/genotyping.pdf) (source `genotyping.tex`); this is a summary.
 Within each cell, the reads covering a target are grouped by UMI, merging UMIs that differ only by sequencing errors, so each group stands for one molecule.
 A group with enough reads, most of them agreeing, becomes a consensus UMI labelled WT (reference allele), MUT (alternative allele) or OTH (any other allele); groups with too few reads are counted but not used.
-OTH UMIs can only arise from errors, so the error rate of each target is estimated from its OTH UMIs pooled over all cells, with a lower floor.
-For each cell × target, a binomial tail gives the probability of seeing at least the observed MUT UMIs if the cell were WT.
-A cell is called MUT when that probability is small, WT when it has no MUT UMI and at least two WT UMIs or when the MUT UMIs are well explained by error, and is left undetermined otherwise.
-Single-UMI MUT calls and the chance of missing a heterozygous cell are reported alongside the calls.
+OTH UMIs can only arise from errors, so the error rate `P_s` of each target is estimated from its OTH UMIs pooled over all cells, with a lower floor.
+A MUT UMI in a cell without the mutation can also come from contamination (ambient RNA, a PCR chimera, barcode swapping), which gives a clean MUT consensus that `P_s` cannot see. With `--negative_cells`, a list of cells that cannot carry the mutations (T and B cells), the contamination rate `c_s` of each target is the MUT fraction of those cells' WT+MUT UMIs; without the file `c_s` = 0.
+For each cell × target, a binomial tail with `P_null` = `P_s` + `c_s` gives the probability of seeing at least the observed MUT UMIs if the cell were WT.
+A cell is called MUT when that probability is small, WT when it has no MUT UMI and at least two WT UMIs or when the MUT UMIs are well explained by error and contamination, and is left undetermined otherwise.
+So a single MUT UMI is accepted in a cell with few WT UMIs and rejected in a cell with many, without a cell-type-specific threshold: at `c_s` = 0.03, one MUT UMI next to 0–2 WT UMIs is MUT and next to 3 or more is undetermined.
+Single-UMI MUT calls, MUT calls left in negative-control cells and the chance of missing a heterozygous cell are reported alongside the calls.
 
 ## 📥 Input
 
@@ -88,10 +90,13 @@ params.outdir
 | `WT` | Number of UMIs with consensus label WT |
 | `MUT` | Number of UMIs with consensus label MUT |
 | `OTH` | Number of UMIs with consensus label OTH (third allele) |
-| `P_s` | Error rate of the target used for the call, as in `sample_targets.csv` |
-| `p` | Binomial upper tail P(X ≥ MUT), X ~ Bin(MUT + WT, `P_s`): the probability of at least this many MUT UMIs if the cell is WT. Empty (NaN) when MUT + WT = 0 |
+| `P_s` | Error rate of the target, as in `sample_targets.csv` |
+| `c_s` | Contamination rate of the target, as in `sample_targets.csv`; 0 without `--negative_cells` |
+| `P_null` | `P_s` + `c_s`, capped at 1: the probability that a UMI of a cell without the mutation reads MUT, used for the call |
+| `p` | Binomial upper tail P(X ≥ MUT), X ~ Bin(MUT + WT, `P_null`): the probability of at least this many MUT UMIs if the cell is WT. Empty (NaN) when MUT + WT = 0 |
 | `genotype` | Call: `MUT` if MUT ≥ `min_mut_umis` and p < 0.1; `WT` if MUT = 0 and WT ≥ 2, or MUT ≥ `min_mut_umis` and p ≥ 0.9; empty (NA) when undetermined |
 | `het_detect_lb` | For WT calls, 1 − 0.5^WT: a lower bound on the probability that a heterozygous cell would have shown a MUT UMI. Empty otherwise |
+| `negative_control` | `True` for a cell listed in `--negative_cells`; such cells are called like any other |
 
 - sample_targets.csv contains the error estimate and the limitations of each target, pooled over cells, one row per target, written without an index column:
 
@@ -107,6 +112,11 @@ params.outdir
 | `eps` | Error floor, `--error_floor` |
 | `P_s` | Error rate used for the calls, max(`q_hat`, `eps`) |
 | `floor_applied` | `True` when `P_s` is the floor, i.e. `q_hat` < `eps` or N = 0 |
+| `n_neg_cells` | Negative-control cells with at least one WT or MUT UMI at the target |
+| `n_neg_umis` | WT + MUT UMIs of the negative-control cells at the target |
+| `n_neg_mut` | MUT UMIs of the negative-control cells at the target |
+| `c_s` | Contamination rate `n_neg_mut` / `n_neg_umis`; 0 when `n_neg_umis` = 0, including without `--negative_cells`. A 0 from few negative UMIs is a weak estimate, not evidence of no contamination |
+| `P_null` | `P_s` + `c_s`, capped at 1 |
 | `min_base_qual` | Base-quality filter applied to the target's reads: `--snv_min_base_quality` at an SNV, 0 at an indel |
 | `wt_reads` | Usable reads of the WT-labelled clusters over all cells. Indel diagnostic: empty (NaN) for an SNV |
 | `wt_altlike_reads` | ALT-like reads: of `wt_reads`, the reads matching the alt by the tolerant match, showing WT→ALT leakage at a repeat. Empty for an SNV |
@@ -118,6 +128,9 @@ params.outdir
 | `n_WT` | Cells called WT |
 | `n_undet` | Cells left undetermined, including cells with no UMI at the target |
 | `n_MUT_single_umi` | MUT calls resting on a single MUT UMI (MUT = 1), the calls most exposed to contamination |
+| `n_MUT_neg` | MUT calls in negative-control cells: contamination the caller still lets through |
+| `one_umi_mut_frac_neg` | The one-UMI test: among negative-control cells with exactly one WT or MUT UMI at the target, the fraction whose UMI is MUT (an independent view of `c_s`). Empty without such cells |
+| `one_umi_mut_frac_other` | The same fraction among the other cells. A single MUT UMI carries information at this target only where this is well above `one_umi_mut_frac_neg`; when the two are close, single-UMI calls are contamination whatever the threshold |
 
 - blaze.log: contains the statistics of the experiments, e.g. number of reads, high quality reads, number of cells and reads in polyT
 
@@ -128,6 +141,7 @@ params.outdir
   - the median and minimum `het_detect_lb` over WT calls
   - the targets at the error floor ε, their number out of all targets and their IDs
   - the `min_mut_umis` value used
+  - the number of negative-control cells, the targets with `c_s` > 0 and their `c_s`, and the MUT calls left in negative-control cells
 
   A statistic over no calls is reported as `nan`.
 
@@ -145,6 +159,7 @@ params.outdir
 | `--minimap2_input_genome` | — | — | Reference genome FASTA |
 | `--minimap2_mindex` | — | — | minimap2 index of the reference genome; required with `--input_type fastq` |
 | `--bedfile` | — | — | Tab-separated target file: chr, start, end, ref, alt, gene |
+| `--negative_cells` | — | c_s | CSV of negative-control cells (sample, cell), e.g. T and B cells; their MUT UMIs give the contamination rate c_s per target. Omit it to keep c_s = 0 |
 | `--min_mapping_quality` | `20` | — | Minimum MAPQ for a primary mapped read to enter UMI grouping |
 | `--min_reads` | `3` | n_min | Minimum usable reads supporting an allele to label a UMI cluster |
 | `--min_fraction` | `0.6` | f_min | Minimum fraction of usable reads supporting an allele to label a UMI cluster, in (0.5, 1] |
@@ -155,6 +170,15 @@ params.outdir
 Hidden parameters are listed by `--help --show_hidden_params`. They include the UMI grouping rule's thresholds `--umi_max_ld` (`2`), `--umi_ratio` (`2`) and `--umi_small_reads` (`3`), and the BLAZE options `--blaze_expect_cells` and `--blaze_edit_distance`.
 
 Retired parameters still run but log a warning and are ignored: `--baseline_error` is now `--error_floor`, `--min_base_quality` is now `--snv_min_base_quality`, and `--window_width` and `--min_dist_umi_collapsing` are no longer parameters.
+
+## 🔁 Changes in genotype-v3
+
+genotype-v3 adds contamination to the caller's null and changes nothing else:
+
+- **`--negative_cells`.** A CSV (`sample`, `cell`) of cells that cannot carry the targeted mutations, typically T and B cells from the short-read annotation. Per target, the MUT fraction of their WT+MUT UMIs is the contamination rate `c_s`, and the call uses `P_null` = `P_s` + `c_s` instead of `P_s`. Without the file `c_s` = 0 and the calls are identical to genotype-v2.
+- **Why.** `P_s` is estimated from third-allele UMIs and sits near its floor; a contaminating molecule gives a clean MUT consensus, so a single MUT UMI was always significant, in T cells as in blasts. Requiring two MUT UMIs removed the T-cell calls but also most blast calls, because at 2–5 UMIs per cell a heterozygous cell shows two MUT UMIs less than half the time. With `c_s` in the null, a lone MUT UMI is accepted when the cell has few WT UMIs and rejected when it has many.
+- **New columns.** `c_s`, `P_null` and `negative_control` in `sample.csv`; `n_neg_cells`, `n_neg_umis`, `n_neg_mut`, `c_s`, `P_null`, `n_MUT_neg`, `one_umi_mut_frac_neg` and `one_umi_mut_frac_other` in `sample_targets.csv`; three lines at the end of `genotype.log`. Column positions after `P_s` shift accordingly.
+- **The one-UMI test.** `one_umi_mut_frac_other` against `one_umi_mut_frac_neg` says, per patient and target, whether single-UMI calls carry information before any threshold is chosen.
 
 ## 🔁 Changes in genotype-v2
 
@@ -172,6 +196,8 @@ For users of `main`, genotype-v2 changes the outputs, the parameters and the cal
 ```bash
 nextflow run path2/main.nf -c nextflow.config -profile singularity -entry LONG_READS  --input samples.csv --bedfile target.tsv
 ```
+
+To model contamination, add `--negative_cells negative_cells.csv`, a CSV with a header `sample,cell` listing, per sample, the barcodes of cells that cannot carry the targeted mutations (T and B cells). Samples absent from the file run with `c_s` = 0.
 
 It requires the target file which is a tab-separated value file containing
 chr, start position of target mutation, end position of target mutation, reference allele, alternative allele, gene associated

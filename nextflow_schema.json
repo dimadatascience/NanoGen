@@ -76,6 +76,15 @@
                     "description": "Tab-separated target file: chr, start, end, ref, alt, gene.",
                     "help_text": "One row per targeted mutation. Start and end are equal for SNVs. Not a spec symbol.",
                     "fa_icon": "far fa-file-alt"
+                },
+                "negative_cells": {
+                    "type": "string",
+                    "format": "file-path",
+                    "mimetype": "text/csv",
+                    "pattern": "^\\S+\\.csv$",
+                    "description": "CSV of negative-control cells (columns sample, cell): cells that cannot carry the targeted mutations, e.g. T and B cells.",
+                    "help_text": "Spec symbol c_s: the MUT fraction of the labelled WT+MUT UMIs of these cells, per target, is the contamination rate added to the error in the caller's null, P_null = P_s + c_s. One file for all samples, with a `sample` column matching the samplesheet; a sample with no rows has c_s = 0. Omit the file to keep c_s = 0 at every target (the genotype-v2 calls).",
+                    "fa_icon": "fas fa-user-slash"
                 }
             }
         },

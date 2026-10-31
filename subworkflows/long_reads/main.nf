@@ -63,7 +63,12 @@ workflow long_reads_from_tagged_bam {
             .flatMap { it }
         CONSENSUS(ch_cell_bams)
         COLLAPSE(CONSENSUS.out.tables.groupTuple(by: 0))
-        GENOTYPING(COLLAPSE.out.allele_counts)
+        // Negative-control cells (T/B barcodes) set the contamination rate c_s;
+        // without the file c_s = 0 and the calls are those of genotype-v2
+        ch_negative_cells = params.negative_cells
+            ? file(params.negative_cells, checkIfExists: true)
+            : []
+        GENOTYPING(COLLAPSE.out.allele_counts, ch_negative_cells)
 
     emit:
 

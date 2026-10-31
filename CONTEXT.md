@@ -48,6 +48,24 @@ _Avoid_: conflicting cluster
 A UMI cluster with at least n_min usable reads where no allele reaches both n_min and f_min. Every cluster covering a target is exactly one of: sub-n_min, labelled or discarded.
 _Avoid_: ambiguous UMI
 
+### Contamination
+
+**Negative-control cell**:
+A cell that cannot carry the targeted mutations, listed in `--negative_cells` (columns `sample`, `cell`): typically T and B cells from the short-read annotation, or every cell of a healthy-donor sample. Every MUT UMI it shows is contamination. Negative-control cells are still called like any other cell.
+_Avoid_: control cell, normal cell (a normal myeloid cell is not a negative control: it may be a blast)
+
+**Contamination rate (c_s)**:
+Per target, the MUT fraction of the labelled WT+MUT UMIs of the negative-control cells: the probability that a UMI of a cell without the mutation reads MUT because the molecule came from elsewhere (ambient RNA, a PCR chimera, barcode swapping). Zero without negative-control cells or without their UMIs at the target. The error P_s cannot see it, because a contaminating molecule gives a clean MUT consensus.
+_Avoid_: ambient rate (chimeras are not ambient RNA), background error (that is P_s)
+
+**Null MUT probability (P_null)**:
+P_s + c_s, capped at 1: the per-UMI probability under the null that the cell is WT, used in the binomial tail. Equal to P_s in genotype-v2 and whenever c_s = 0.
+_Avoid_: error rate (when the sum is meant)
+
+**One-UMI test**:
+Among cells with exactly one labelled WT or MUT UMI at a target, the fraction whose UMI is MUT, in negative-control cells (`one_umi_mut_frac_neg`, an independent view of c_s) and in the other cells (`one_umi_mut_frac_other`). Single-UMI calls carry information at the target only where the second is well above the first.
+_Avoid_: single-UMI sensitivity
+
 ### Output
 
 **Target ID**:

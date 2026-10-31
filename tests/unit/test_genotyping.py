@@ -56,16 +56,20 @@ def is_na(x):
 # Spelled out rather than read from gt, so the contracts are pinned
 OUTPUT_COLUMNS = [
     "cell", "target_id", "gene", "type", "WT", "MUT", "OTH",
-    "P_s", "p", "genotype", "het_detect_lb",
+    "P_s", "c_s", "P_null", "p", "genotype", "het_detect_lb", "negative_control",
 ]
 ERROR_COLUMNS = [
     "target_id", "gene", "type", "N", "w", "d", "q_hat", "eps", "P_s", "floor_applied",
 ]
-TARGET_COLUMNS = ERROR_COLUMNS + [
+CONTAMINATION_COLUMNS = ["n_neg_cells", "n_neg_umis", "n_neg_mut", "c_s", "P_null"]
+TARGET_COLUMNS = ERROR_COLUMNS + CONTAMINATION_COLUMNS + [
     "min_base_qual", "wt_reads", "wt_altlike_reads", "wt_altlike_frac",
     "mixed_discarded", "subnmin_umis", "subnmin_reads",
-    "n_MUT", "n_WT", "n_undet", "n_MUT_single_umi",
+    "n_MUT", "n_WT", "n_undet", "n_MUT_single_umi", "n_MUT_neg",
+    "one_umi_mut_frac_neg", "one_umi_mut_frac_other",
 ]
+GENOTYPE_COL = OUTPUT_COLUMNS.index("genotype")
+MIN_BASE_QUAL_COL = TARGET_COLUMNS.index("min_base_qual")
 
 
 # Per-target error
@@ -275,7 +279,7 @@ def test_type_is_indel_for_bam_readcount_indel_alts_else_snv(alt, expected):
     assert gt.variant_type(alt) == expected
 
 
-def test_output_table_has_the_v2_columns_one_row_per_cell_and_target():
+def test_output_table_has_the_v3_columns_one_row_per_cell_and_target():
     table, _ = gt.call_targets(
         collapsed(
             snv("c1", 2, 3, 0),
@@ -347,7 +351,7 @@ def targets_of(*rows, **kwargs):
     return gt.call_targets(collapsed(*rows), **kwargs)[1]
 
 
-def test_targets_table_has_the_error_then_the_diagnostic_columns():
+def test_targets_table_has_the_error_the_contamination_then_the_diagnostic_columns():
     assert targets_of(snv("c1", 2, 0, 0)).columns.tolist() == TARGET_COLUMNS
 
 
@@ -535,17 +539,19 @@ def test_cli_writes_the_targets_csv_without_an_index(tmp_path):
 
     # The indel diagnostic columns are empty at the SNV, and wt_altlike_frac at
     # the indel, which has no WT reads
+    # Without --negative_cells: no negative-control cells, c_s = 0, P_null = P_s,
+    # and the one-UMI test has no cells on either side at these targets
     assert lines == [
         ",".join(TARGET_COLUMNS),
-        "chrF:301:A>G,SNV1,SNV,8,0,2,0.0,0.0001,0.0001,True,20,,,,0,0,0,2,0,0,1",
-        "chrF:1602:T>-T,HP,INDEL,2,0,1,0.0,0.0001,0.0001,True,0,0,0,,0,0,0,1,0,0,1",
+        "chrF:301:A>G,SNV1,SNV,8,0,2,0.0,0.0001,0.0001,True,0,0,0,0.0,0.0001,20,,,,0,0,0,2,0,0,1,0,,",
+        "chrF:1602:T>-T,HP,INDEL,2,0,1,0.0,0.0001,0.0001,True,0,0,0,0.0,0.0001,0,0,0,,0,0,0,1,0,0,1,0,,",
     ]
 
 
 def test_cli_snv_min_base_quality_is_reported_at_snv_targets(tmp_path):
     _, lines = run_cli(tmp_path, "--snv_min_base_quality", "25")
 
-    min_base_qual = [line.split(",")[10] for line in lines[1:]]
+    min_base_qual = [line.split(",")[MIN_BASE_QUAL_COL] for line in lines[1:]]
     assert min_base_qual == ["25", "0"]
 
 
@@ -556,11 +562,313 @@ def test_cli_log_keeps_the_existing_lines_then_summarises_the_calls(tmp_path):
     assert lines[0] == "Total number of cells: 2"
     assert lines[4].startswith("Fraction of cells with UMIs: ")
     assert lines[5] == "MUT calls: 1"
-    assert lines[-1] == "min_mut_umis: 2"
+    assert lines[16] == "min_mut_umis: 2"
+    assert lines[17:] == [
+        "Negative-control cells: 0",
+        "Targets with c_s > 0: 0 of 2",
+        "MUT calls in negative-control cells: 0",
+    ]
 
 
 def test_cli_min_mut_umis(tmp_path):
     lines, _ = run_cli(tmp_path, "--min_mut_umis", "2")
 
-    genotypes = [line.split(",")[9] for line in lines[1:]]
+    genotypes = [line.split(",")[GENOTYPE_COL] for line in lines[1:]]
     assert genotypes == ["MUT", "", ""]
+
+
+# Contamination from negative-control cells (genotype-v3, genotyping.tex section 6)
+
+
+def contamination(*rows, negative_cells=(), error_floor=1e-4):
+    table = gt.annotate(collapsed(*rows))
+    return gt.target_contamination(table, gt.target_error(table, error_floor), set(negative_cells))
+
+
+def test_without_negative_cells_c_s_is_0_and_p_null_is_p_s():
+    targets = contamination(snv("c1", 2, 3, 0), snv("t1", 5, 1, 0))
+
+    assert targets[["n_neg_cells", "n_neg_umis", "n_neg_mut"]].values.tolist() == [[0, 0, 0]]
+    assert targets["c_s"].tolist() == [0.0]
+    assert targets["P_null"].tolist() == targets["P_s"].tolist()
+
+
+def test_c_s_is_the_mut_fraction_of_the_negative_cells_labelled_wt_and_mut_umis():
+    # Negative cells t1 and t2: 1 + 0 MUT of (5 + 1) + (3 + 0) = 9 WT+MUT UMIs;
+    # t2's OTH UMI is not counted. Cell c1 is not a negative-control cell.
+    targets = contamination(
+        snv("c1", 2, 3, 0), snv("t1", 5, 1, 0), snv("t2", 3, 0, 1),
+        negative_cells=["t1", "t2"],
+    )
+
+    assert targets[["n_neg_cells", "n_neg_umis", "n_neg_mut"]].values.tolist() == [[2, 9, 1]]
+    assert targets["c_s"].tolist() == [pytest.approx(1 / 9)]
+
+
+def test_p_null_adds_the_contamination_to_the_error():
+    # q_hat = 1 / (2 * 10) = 0.05 at the SNV; c_s = 1 / 4
+    targets = contamination(
+        snv("c1", 2, 3, 1), snv("t1", 3, 1, 0), negative_cells=["t1"],
+    )
+
+    assert targets["P_s"].tolist() == [0.05]
+    assert targets["P_null"].tolist() == [pytest.approx(0.05 + 0.25)]
+
+
+def test_p_null_is_capped_at_1():
+    targets = contamination(snv("t1", 0, 2, 0), negative_cells=["t1"])
+
+    assert targets["c_s"].tolist() == [1.0]
+    assert targets["P_null"].tolist() == [1.0]
+
+
+def test_negative_cells_without_umis_at_the_target_give_c_s_0():
+    # t1 covers the deletion only; the SNV has no negative-control UMIs
+    targets = contamination(
+        snv("c1", 2, 3, 0), deletion("t1", 4, 0, 0), negative_cells=["t1"],
+    )
+
+    assert targets.set_index("target_id").loc["chrF:301:A>G", ["n_neg_cells", "n_neg_umis", "c_s"]].tolist() == [0, 0, 0.0]
+    assert targets.set_index("target_id").loc["chrF:1002:T>-TTA", ["n_neg_cells", "n_neg_umis", "c_s"]].tolist() == [1, 4, 0.0]
+
+
+def test_c_s_is_estimated_per_target():
+    targets = contamination(
+        snv("t1", 3, 1, 0), deletion("t1", 4, 0, 0), negative_cells=["t1"],
+    )
+
+    assert targets["c_s"].tolist() == [0.25, 0.0]
+
+
+def test_negative_cells_listed_but_absent_from_the_counts_are_ignored():
+    targets = contamination(snv("c1", 2, 3, 0), negative_cells=["t_missing"])
+
+    assert targets["n_neg_cells"].tolist() == [0]
+    assert targets["c_s"].tolist() == [0.0]
+
+
+# The calls with c_s: a single MUT UMI is accepted when the cell has few WT
+# UMIs and rejected when it has many (Table 2 of the document)
+
+
+def calls_with_c_s(c_s, *cells):
+    """Calls of (barcode, k, m) cells at an SNV whose negative-control cell shows
+    c_s as its MUT fraction out of 100 UMIs; P_s stays at the floor."""
+    rows = [snv(barcode, k, m, 0) for barcode, k, m in cells]
+    rows.append(snv("neg", int(round(100 * (1 - c_s))), int(round(100 * c_s)), 0))
+    table, _ = gt.call_targets(collapsed(*rows), negative_cells={"neg"})
+    return table.set_index("cell").loc[[c for c, _, _ in cells], ["p", "genotype"]]
+
+
+def test_single_mut_umi_alone_is_mut_at_c_s_0_03():
+    result = calls_with_c_s(0.03, ("c1", 0, 1))
+
+    assert result.loc["c1", "p"] == pytest.approx(0.0301)
+    assert result.loc["c1", "genotype"] == "MUT"
+
+
+def test_single_mut_umi_with_two_wt_is_still_mut_at_c_s_0_03():
+    result = calls_with_c_s(0.03, ("c1", 2, 1))
+
+    assert result.loc["c1", "p"] == pytest.approx(1 - (1 - 0.0301) ** 3)
+    assert result.loc["c1", "genotype"] == "MUT"
+
+
+def test_single_mut_umi_with_three_wt_is_undetermined_at_c_s_0_03():
+    result = calls_with_c_s(0.03, ("c1", 3, 1))
+
+    assert 0.1 <= result.loc["c1", "p"] < 0.9
+    assert is_na(result.loc["c1", "genotype"])
+
+
+def test_single_mut_umi_with_many_wt_is_not_mut_at_c_s_0_03():
+    # A T cell with one contaminating MUT UMI among 40 WT UMIs
+    result = calls_with_c_s(0.03, ("t_cell", 40, 1))
+
+    assert result.loc["t_cell", "p"] > 0.5
+    assert is_na(result.loc["t_cell", "genotype"])
+
+
+def test_two_mut_umis_alone_are_mut_at_c_s_0_03():
+    result = calls_with_c_s(0.03, ("c1", 0, 2))
+
+    assert result.loc["c1", "p"] == pytest.approx(0.0301 ** 2)
+    assert result.loc["c1", "genotype"] == "MUT"
+
+
+def test_single_mut_umi_is_undetermined_when_c_s_is_large():
+    # At c_s = 0.2 a lone MUT UMI is not distinguishable from contamination
+    result = calls_with_c_s(0.2, ("c1", 0, 1))
+
+    assert result.loc["c1", "p"] == pytest.approx(0.2001)
+    assert is_na(result.loc["c1", "genotype"])
+
+
+def test_wt_rule_is_unchanged_by_c_s():
+    result = calls_with_c_s(0.03, ("c1", 2, 0), ("c2", 1, 0))
+
+    assert result["genotype"].tolist()[0] == "WT"
+    assert is_na(result["genotype"].tolist()[1])
+
+
+def test_calls_without_negative_cells_equal_the_v2_calls():
+    rows = [snv("c1", 2, 1, 0), snv("c2", 3, 0, 0), snv("c3", 1, 0, 0), snv("c4", 50, 1, 0)]
+    v3, _ = gt.call_targets(collapsed(*rows))
+    p_v2, calls_v2 = gt.call(v3["MUT"].values, v3["WT"].values, v3["P_s"].values)
+
+    assert v3["p"].tolist() == pytest.approx(p_v2.tolist())
+    assert [c if isinstance(c, str) else None for c in v3["genotype"]] == \
+        [c if isinstance(c, str) else None for c in calls_v2]
+    assert v3["c_s"].tolist() == [0.0] * 4
+    assert not v3["negative_control"].any()
+
+
+def test_negative_cells_are_called_too_and_flagged():
+    table, _ = gt.call_targets(
+        collapsed(snv("c1", 0, 1, 0), snv("t1", 10, 0, 0)), negative_cells={"t1"}
+    )
+
+    assert table["negative_control"].tolist() == [False, True]
+    assert table.set_index("cell").loc["t1", "genotype"] == "WT"
+
+
+# Contamination diagnostics in <sample>_targets.csv
+
+
+def test_n_mut_neg_counts_mut_calls_in_negative_cells():
+    # t1 shows 2 MUT of 2 UMIs: c_s = 1/3 over t1 and t2, and p for t1 is
+    # (1/3 + 1e-4)^2 ~ 0.11, undetermined; t3 is a lone MUT UMI: p ~ 0.33, undetermined.
+    # With c_s = 0 (no negative cells) both would be MUT.
+    targets = targets_of(
+        snv("c1", 0, 3, 0), snv("t1", 0, 2, 0), snv("t2", 4, 0, 0), snv("t3", 0, 1, 0),
+        negative_cells={"t1", "t2", "t3"},
+    )
+
+    assert targets["c_s"].tolist() == [pytest.approx(3 / 7)]
+    assert targets[["n_MUT", "n_MUT_neg"]].values.tolist() == [[1, 0]]
+
+
+def test_n_mut_neg_is_nonzero_when_contamination_gets_through():
+    # One negative cell with 1 MUT of 20 UMIs: c_s = 0.05, and another negative
+    # cell with a lone MUT UMI: p = 0.0501 < 0.1, still called MUT
+    targets = targets_of(
+        snv("t1", 19, 1, 0), snv("t2", 0, 1, 0), negative_cells={"t1", "t2"},
+    )
+
+    assert targets["c_s"].tolist() == [pytest.approx(2 / 21)]
+    assert targets["n_MUT_neg"].tolist() == [1]
+
+
+def test_one_umi_test_splits_single_umi_cells_by_negative_status():
+    # Single-UMI cells: negative t1 (MUT), t2 (WT), t3 (WT) -> 1/3;
+    # other c1 (MUT), c2 (MUT), c3 (WT) -> 2/3. c4 has two UMIs and is not counted.
+    targets = targets_of(
+        snv("t1", 0, 1, 0), snv("t2", 1, 0, 0), snv("t3", 1, 0, 0),
+        snv("c1", 0, 1, 0), snv("c2", 0, 1, 0), snv("c3", 1, 0, 0), snv("c4", 1, 1, 0),
+        negative_cells={"t1", "t2", "t3"},
+    )
+
+    assert targets["one_umi_mut_frac_neg"].tolist() == [pytest.approx(1 / 3)]
+    assert targets["one_umi_mut_frac_other"].tolist() == [pytest.approx(2 / 3)]
+
+
+def test_one_umi_test_is_nan_without_single_umi_cells():
+    targets = targets_of(snv("c1", 2, 2, 0), snv("t1", 3, 0, 0), negative_cells={"t1"})
+
+    assert is_na(targets["one_umi_mut_frac_neg"].iloc[0])
+    assert is_na(targets["one_umi_mut_frac_other"].iloc[0])
+
+
+def test_one_umi_test_counts_oth_only_cells_as_uncovered():
+    # c1 has one OTH UMI and no WT or MUT UMI: not a single-UMI cell
+    targets = targets_of(snv("c1", 0, 0, 1), snv("c2", 1, 0, 0))
+
+    assert is_na(targets["one_umi_mut_frac_neg"].iloc[0])
+    assert targets["one_umi_mut_frac_other"].tolist() == [0.0]
+
+
+# read_negative_cells
+
+
+def test_read_negative_cells_without_a_file_is_empty():
+    assert gt.read_negative_cells(None) == set()
+    assert gt.read_negative_cells(None, "S1") == set()
+
+
+def test_read_negative_cells_keeps_the_samples_rows(tmp_path):
+    path = tmp_path / "negative.csv"
+    path.write_text("sample,cell\nS1,AAAC\nS1,AAAG\nS2,TTTT\n")
+
+    assert gt.read_negative_cells(path, "S1") == {"AAAC", "AAAG"}
+    assert gt.read_negative_cells(path, "S3") == set()
+    assert gt.read_negative_cells(path) == {"AAAC", "AAAG", "TTTT"}
+
+
+def test_read_negative_cells_requires_sample_and_cell_columns(tmp_path):
+    path = tmp_path / "negative.csv"
+    path.write_text("barcode\nAAAC\n")
+
+    with pytest.raises(ValueError, match="cell"):
+        gt.read_negative_cells(path, "S1")
+
+
+# genotype.log contamination lines
+
+
+def test_contamination_summary_without_negative_cells():
+    table, targets = gt.call_targets(collapsed(snv("c1", 2, 1, 0), deletion("c1", 2, 0, 0)))
+
+    assert gt.summarise_contamination(table, targets) == [
+        "Negative-control cells: 0",
+        "Targets with c_s > 0: 0 of 2",
+        "MUT calls in negative-control cells: 0",
+    ]
+
+
+def test_contamination_summary_names_the_targets_with_c_s_and_counts_leaks():
+    table, targets = gt.call_targets(
+        collapsed(
+            snv("t1", 19, 1, 0), snv("t2", 0, 1, 0), deletion("t1", 5, 0, 0), snv("c1", 0, 2, 0),
+        ),
+        negative_cells={"t1", "t2"},
+    )
+
+    assert gt.summarise_contamination(table, targets) == [
+        "Negative-control cells: 2",
+        "Targets with c_s > 0: 1 of 2: chrF:301:A>G (0.09524)",
+        "MUT calls in negative-control cells: 1",
+    ]
+
+
+# CLI with --negative_cells
+
+
+def test_cli_negative_cells_set_c_s_for_the_named_sample(tmp_path):
+    (tmp_path / "negative.csv").write_text("sample,cell\nS1,c2\nS2,c1\n")
+    lines, target_lines = run_cli(
+        tmp_path, "--negative_cells", "negative.csv", "--sample", "S1"
+    )
+
+    # c2 is S1's negative-control cell: 1 MUT of 3 UMIs at the SNV
+    rows = [line.split(",") for line in lines[1:]]
+    assert [r[OUTPUT_COLUMNS.index("negative_control")] for r in rows] == ["False", "False", "True"]
+    assert [r[OUTPUT_COLUMNS.index("c_s")] for r in rows] == [
+        "0.3333333333333333", "0.0", "0.3333333333333333",
+    ]
+    snv_target = target_lines[1].split(",")
+    assert snv_target[TARGET_COLUMNS.index("n_neg_cells")] == "1"
+    assert snv_target[TARGET_COLUMNS.index("n_neg_umis")] == "3"
+    assert snv_target[TARGET_COLUMNS.index("c_s")] == "0.3333333333333333"
+
+    log = (tmp_path / "genotype.log").read_text().splitlines()
+    assert log[-3] == "Negative-control cells: 1"
+    assert log[-2] == "Targets with c_s > 0: 1 of 2: chrF:301:A>G (0.3333)"
+
+
+def test_cli_negative_cells_of_another_sample_are_ignored(tmp_path):
+    (tmp_path / "negative.csv").write_text("sample,cell\nS2,c2\n")
+    _, target_lines = run_cli(
+        tmp_path, "--negative_cells", "negative.csv", "--sample", "S1"
+    )
+
+    assert target_lines[1].split(",")[TARGET_COLUMNS.index("n_neg_cells")] == "0"

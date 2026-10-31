@@ -70,17 +70,18 @@ nextflow_workflow {
             // indel diagnostic (wt_reads, wt_altlike_reads, wt_altlike_frac) is
             // empty at SNVs. SNV1's OTH UMI lifts it off the floor, and its two
             // UMIs make it undetermined. Every MUT call but DEL's (m = 2) rests
-            // on a single MUT UMI.
+            // on a single MUT UMI. Without negative-control cells there is no
+            // contamination estimate (c_s = 0, P_null = P_s) and no one-UMI test.
             assert path(workflow.out.targets.get(0).get(1)).readLines() == [
-                "target_id,gene,type,N,w,d,q_hat,eps,P_s,floor_applied,min_base_qual,wt_reads,wt_altlike_reads,wt_altlike_frac,mixed_discarded,subnmin_umis,subnmin_reads,n_MUT,n_WT,n_undet,n_MUT_single_umi",
-                "chrF:301:A>G,SNV1,SNV,3,1,2,0.16666666666666666,0.0001,0.16666666666666666,False,20,,,,0,2,4,0,0,3,0",
-                "chrF:701:A>G,SNV2,SNV,2,0,2,0.0,0.0001,0.0001,True,20,,,,0,1,0,1,0,2,1",
-                "chrF:1002:T>-TTA,DEL,INDEL,3,0,1,0.0,0.0001,0.0001,True,0,4,0,0.0,0,0,0,1,0,2,0",
-                "chrF:1301:A>+GTC,INS,INDEL,2,0,1,0.0,0.0001,0.0001,True,0,4,0,0.0,0,0,0,1,0,2,1",
-                "chrF:1602:T>-T,HP,INDEL,2,0,1,0.0,0.0001,0.0001,True,0,4,0,0.0,0,0,0,1,0,2,1",
+                "target_id,gene,type,N,w,d,q_hat,eps,P_s,floor_applied,n_neg_cells,n_neg_umis,n_neg_mut,c_s,P_null,min_base_qual,wt_reads,wt_altlike_reads,wt_altlike_frac,mixed_discarded,subnmin_umis,subnmin_reads,n_MUT,n_WT,n_undet,n_MUT_single_umi,n_MUT_neg,one_umi_mut_frac_neg,one_umi_mut_frac_other",
+                "chrF:301:A>G,SNV1,SNV,3,1,2,0.16666666666666666,0.0001,0.16666666666666666,False,0,0,0,0.0,0.16666666666666666,20,,,,0,2,4,0,0,3,0,0,,",
+                "chrF:701:A>G,SNV2,SNV,2,0,2,0.0,0.0001,0.0001,True,0,0,0,0.0,0.0001,20,,,,0,1,0,1,0,2,1,0,,",
+                "chrF:1002:T>-TTA,DEL,INDEL,3,0,1,0.0,0.0001,0.0001,True,0,0,0,0.0,0.0001,0,4,0,0.0,0,0,0,1,0,2,0,0,,",
+                "chrF:1301:A>+GTC,INS,INDEL,2,0,1,0.0,0.0001,0.0001,True,0,0,0,0.0,0.0001,0,4,0,0.0,0,0,0,1,0,2,1,0,,",
+                "chrF:1602:T>-T,HP,INDEL,2,0,1,0.0,0.0001,0.0001,True,0,0,0,0.0,0.0001,0,4,0,0.0,0,0,0,1,0,2,1,0,,",
             ]
 
-            // The existing lines, then the call summary
+            // The existing lines, the call summary, then the contamination lines
             assert path(workflow.out.gt_log.get(0).get(1)).readLines() == [
                 "Total number of cells: 3",
                 "Total number of UMIs: 12",
@@ -99,12 +100,67 @@ nextflow_workflow {
                 "Minimum het_detect_lb over WT calls: nan",
                 "Targets at the error floor (eps = 0.0001): 4 of 5: chrF:701:A>G, chrF:1002:T>-TTA, chrF:1301:A>+GTC, chrF:1602:T>-T",
                 "min_mut_umis: 1",
+                "Negative-control cells: 0",
+                "Targets with c_s > 0: 0 of 5",
+                "MUT calls in negative-control cells: 0",
             ]
 
             // Snapshot of the calls
             assert snapshot(
                 path(workflow.out.genotypes.get(0).get(1)).readLines(),
             ).match()
+        }
+
+    }
+
+    test("negative-control cells set the contamination rate") {
+
+        when {
+            params {
+                bedfile                 = "${baseDir}/tests/fixtures/synthetic/targets.bed"
+                minimap2_input_genome   = "${baseDir}/tests/fixtures/synthetic/contig.fa"
+                outdir                  = "${outputDir}/results"
+                min_reads               = 3
+                min_fraction            = 0.6
+                // S1's negative-control cell is AAACCCAAGAAACACT; the S2 row is ignored
+                negative_cells          = "${baseDir}/tests/fixtures/synthetic/negative_cells.csv"
+            }
+            workflow {
+                """
+                input[0] = Channel.fromPath('${baseDir}/tests/fixtures/synthetic/cells/*.bam')
+                    .map { bam -> ['S1', bam.baseName, bam] }
+                """
+            }
+        }
+
+        then {
+            assert workflow.success
+
+            // AAACCCAAGAAACACT shows 1 MUT of 2 WT+MUT UMIs at SNV1 (its OTH UMI
+            // is not counted): c_s = 0.5 and P_null = 1/6 + 0.5. The other targets
+            // have no negative-control UMI and keep c_s = 0.
+            def targets = path(workflow.out.targets.get(0).get(1)).readLines()
+            def header = targets[0].split(",", -1).toList()
+            def rows = targets.drop(1).collect { [header, it.split(",", -1).toList()].transpose().collectEntries() }
+            def snv1 = rows.find { it.target_id == "chrF:301:A>G" }
+            assert snv1.subMap(["n_neg_cells", "n_neg_umis", "n_neg_mut", "c_s", "P_null", "n_MUT_neg"]) ==
+                [n_neg_cells: "1", n_neg_umis: "2", n_neg_mut: "1", c_s: "0.5", P_null: "0.6666666666666666", n_MUT_neg: "0"]
+            assert rows.findAll { it.target_id != "chrF:301:A>G" }.every { it.c_s == "0.0" && it.P_null == it.P_s }
+
+            // The negative-control cell is flagged and still called (undetermined here)
+            def calls = path(workflow.out.genotypes.get(0).get(1)).readLines()
+            def cheader = calls[0].split(",", -1).toList()
+            def crows = calls.drop(1).collect { [cheader, it.split(",", -1).toList()].transpose().collectEntries() }
+            def neg = crows.find { it.cell == "AAACCCAAGAAACACT" && it.target_id == "chrF:301:A>G" }
+            assert neg.subMap(["c_s", "P_null", "genotype", "negative_control"]) ==
+                [c_s: "0.5", P_null: "0.6666666666666666", genotype: "", negative_control: "True"]
+            assert crows.findAll { it.cell != "AAACCCAAGAAACACT" }.every { it.negative_control == "False" }
+
+            assert path(workflow.out.gt_log.get(0).get(1)).readLines().takeRight(3) == [
+                "Negative-control cells: 1",
+                "Targets with c_s > 0: 1 of 5: chrF:301:A>G (0.5)",
+                "MUT calls in negative-control cells: 0",
+            ]
         }
 
     }

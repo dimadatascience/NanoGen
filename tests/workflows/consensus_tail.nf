@@ -16,7 +16,11 @@ workflow CONSENSUS_TAIL {
         CONSENSUS(ch_cell_bams)
         // Sort cell tables by name so the collapsed table is reproducible
         COLLAPSE(CONSENSUS.out.tables.groupTuple(by: 0, sort: { a, b -> a.name <=> b.name }))
-        GENOTYPING(COLLAPSE.out.allele_counts)
+        // Negative-control cells as the subworkflow passes them: the file, or [] for none
+        ch_negative_cells = params.negative_cells
+            ? file(params.negative_cells, checkIfExists: true)
+            : []
+        GENOTYPING(COLLAPSE.out.allele_counts, ch_negative_cells)
 
     emit:
         counts    = COLLAPSE.out.allele_counts

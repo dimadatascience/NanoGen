@@ -1,6 +1,6 @@
 # Scoring: T/B/NK negative controls vs blast calls (PALM22E, PALM09E)
 
-Wayfinder ticket *Score the contenders against the pass bar* (#67), map *T/B negative controls vs blast calls* (#60). The pass bar, split, seeds, evaluability rules and computations are those of `docs/research/negative-control-preregistration.md` at **`76c3f99`**. Deviations are listed under [Deviations](#deviations-from-the-pre-registration). The verdict, i.e. which contender NanoGen uses, belongs to *Verdict: which genotyping version to use for blast calls* (#69). This file only says pass / fail / not evaluable.
+Wayfinder ticket *Score the contenders against the pass bar* (#67), map *T/B negative controls vs blast calls* (#60). The pass bar, split, seeds, evaluability rules and computations are those of `docs/research/negative-control-preregistration.md` at **`76c3f99`**. Deviations are listed under [Deviations](#deviations-from-the-pre-registration). The scoring sections say only pass / fail / not evaluable. The decision on which contender NanoGen uses was made in *Verdict: which genotyping version to use for blast calls* (#69) and is recorded under [Verdict](#verdict).
 
 **Patient data:** aggregate numbers only, targets as T1…Tn (key in the HPC working folder's README).
 
@@ -18,7 +18,7 @@ Wayfinder ticket *Score the contenders against the pass bar* (#67), map *T/B neg
 - **`main` and v2 are miscalibrated by 1–3 orders of magnitude in negatives.** `main`'s nominal null is the 1e-4 floor in most cells (median θᵢ = 1e-4), and at the two insertion targets of the same mutation type (PALM22E T4, PALM09E T1) `main`'s own counts read MUT in 49 % and 20 % of negative-cell UMIs.
 - **PALM09E fails every contender.** Two causes, both already known:
   - **T1** (the sole clonal target) has almost no MUT signal in the v3 run's counts: q_T = 0.42 %, 34 calls in 1,428 cells. No call rule over these counts passes 2 or 3a. This is the counts issue that *PALM09E indel MUT loss in v3 consensus counts* (#70) investigates.
-  - **T3** is the over-dispersed target, where B-cell contamination is above the pooled c. v3 fails calibration narrowly there (p 0.048, 5/20 seeds pass). The exploratory upper-bound variant v3-ub fixed it in the sweep (#68).
+  - **T3**: v3 fails calibration on both conditions (median p 0.048 < 0.05, median O/E 1.70 > 1.5; 5 of 20 seeds pass). The cause is unresolved (see [Verdict](#verdict)). The exploratory upper-bound variant v3-ub passed it in the sweep (#68), but it was chosen on this target, so that result is not confirmatory.
 - **Ties:** PALM09E fails every contender, so no tie decides anything there, and the PALM22E differences are all ≥ 763 calls. **No replicate runs** under the pre-registered rule.
 
 ## Inputs
@@ -80,7 +80,7 @@ Each cell reads median O_B / E_B, then median p_cal, then the outcome, with the 
 | PALM09E | T3 | ~154 | 307, 2e-15 ✗ (0) | 402, 3e-16 ✗ (0) | 2.4e4, 4e-5 ✗ (0.35) | **1.70, 0.048 ✗ (0.25)** |
 | PALM09E | T2 (flagged) | ~335 | 36.9 ✗ | 34.8 ✗ | ✓ | 1.03, 0.54 ✓ |
 
-"0 obs" means O_B = 0: no MUT call in B, ratio 1 by convention, p 1.
+"0 obs" means O_B = 0: no MUT call in B, so the ratio is 0 (E_B > 0) and p = 1. The one-sided test passes this case by construction (see deviation 8).
 
 - **5–95 % ranges** are wide where E_B is small. v3's O/E runs 0.73–1.63 at PALM22E T4, 0.48–3.4 at PALM22E T5 and 0–11.9 at PALM09E T1. Every column is in `score_<S>.tsv`.
 - **Observed false-MUT rate in negatives, in-sample:**
@@ -160,6 +160,12 @@ Numbers in brackets are cell counts; Wilson CIs are in `one_umi_<S>.tsv`.
 4. **One-UMI test from both count sources.** The pre-registration names v3's diagnostic. It is given for the v3 run's counts and, for comparison, `main`'s. "Other" = all non-negative QC cells.
 5. **Synthetic smoke data.** The sweep's (#68) synthetic generator re-seeded its random generator for every base, so its 3,000 barcodes collapsed to 4 distinct cells. Its smoke test was weaker than reported. Its real-data checks are unaffected. The generator is fixed here (`negative-control/mk.py`).
 
+Items 6–8 were found by an audit during the verdict (#69). None changes a verdict.
+
+6. **Clonal set fixed after the exploratory sweep.** The pre-registration requires the clonal set to be fixed before scoring starts, and it was. But #63 fixed it after the sweep's (#68) provisional verdicts were known, and it used v3 counts to move PALM22E T4 in and T7 out. That is a forking path. No verdict depends on it: `main` already fails PALM22E on criterion 1, and T7 would pass 2 and 3a for v3 (FDR 0.08, +176 calls over v2 + min2).
+7. **Outlier flag at c_s = q_T = 0.** At PALM22E T2, c_s = q_T = 0, so the rule c_s ≥ 0.5 q_T is met literally, yet the table shows no flag. No effect: the target is neither evaluable nor clonal, and it has no tumour MUT calls.
+8. **Calibration passes when no calls are made.** The one-sided calibration test passes any rule that makes no MUT calls in B (O_B = 0). v2 + min2 passes PALM22E calibration this way (at T4 in only 11 of 20 seeds). This is consistent with the pre-registered rule, but the earlier note that the ratio is "1 by convention" was wrong; it is 0.
+
 ## Reading for the verdict ticket
 
 - Under the pre-registered bar, **v3 and v2 + min2 are the only contenders that pass anywhere (PALM22E)**, and **no contender passes PALM09E**.
@@ -168,9 +174,42 @@ Numbers in brackets are cell counts; Wilson CIs are in `one_umi_<S>.tsv`.
   - its per-cell error is floored at 1e-4 in most cells;
   - its counts at the insertion targets read MUT in a large fraction of negative-cell UMIs.
 - PALM09E's failure has two separable parts:
-  - **T1, counts**: no rule over the v3 counts can pass. It waits on #70 and on whether T1 stays clonal.
-  - **T3, call rule**: v3 misses by p 0.048 with 5/20 seeds passing. The exploratory v3-ub fixes it.
-- The fog item *Alternative filter if v3 fails* is therefore down to a specific case, PALM09E T3's over-dispersed contamination, for which the sweep already holds a candidate.
+  - **T1, counts**: no rule over the v3 counts can pass. #70 found weak tumour signal rather than a v3 defect; T1 stays clonal and its fail stands (see [Verdict](#verdict)).
+  - **T3, call rule**: v3 fails both calibration conditions, with 5 of 20 seeds passing. The exploratory v3-ub passes it in-sample.
+
+## Verdict
+
+Decided in *Verdict: which genotyping version to use for blast calls* (#69). The recommendations were reviewed by three independent reviewers (blind, adversarial, pre-registration audit). The audit re-derived all eight pass/fail outcomes from the pre-registered rules and found the table above faithful.
+
+**Against the pre-registered bar, no contender passes both samples, so the map's destination is only partly met.** v3 passes PALM22E and fails PALM09E; v2 + min2 does the same. `main` and v2 fail both.
+
+**Forward version (provisional): genotype-v3 with `--negative_cells` = T/B/NK, `min_mut_umis = 1`.**
+
+- **Why v3.** It is the best contender: on PALM22E it is calibrated (held-out O/E 0.91 at T4, 0.97 at T5) and keeps 2–5× the tumour MUT calls of v2 + min2.
+- **Why provisional.** It passed one sample out of two. Its calibration is shown only at low contamination (c_s 0.5–0.6 %, at PALM22E T4 and T5, passing in 17 and 14 of 20 seeds). The one higher-contamination evaluable target (PALM09E T3, c_s 4 %) fails.
+- **Rejected.**
+  - `main`: miscalibrated in negatives by 250× to 1,200× (held-out O/E 249–1,210). It must not be used at indel targets.
+  - v2 (v3 without negative cells): miscalibrated by 6× to 400×. v3 must always be run with negative cells, and the sample name must match the negative-cell list, or c_s silently becomes 0.
+  - v2 + min2: it calibrates only by making no calls in B (deviation 8), keeps 2–5× fewer tumour calls (efficiency 0.12–0.34), and still fails PALM09E T3 (O/E 2.4e4).
+
+**Validated use: clone-fraction estimates from high-prevalence clonal calls, per target.** α = 0.1 per cell brings vagrant-RNA MUT calls down to the nominal rate; it does not remove them. In-sample false-MUT rates in negatives are 0.3–7.4 %. Tumour FDR is ≤ 0.06 at PALM22E's clonal targets. **Not validated:**
+
+- multi-target "any MUT" cell labels. With three targets at 3–7 % each, roughly 10–20 % of WT cells would be labelled MUT somewhere;
+- low-burden, MRD-like or T/B-involvement questions, where FDR grows as prevalence falls.
+
+**PALM09E outcomes as recorded:**
+
+- **T1, criteria 2 and 3a: fail**, as pre-registered. §5.2 makes O_T-driven failure a fail, and #63 kept T1 clonal knowing its signal was weak. *Interpretation, not a change of outcome:* #70 shows the fail reflects too little tumour signal in the counts (+4 points of tumour excess in reads, against +14 at PALM22E T4), not a v3 defect.
+- **T3, criterion 1: fail** on both conditions (median p 0.048, median O/E 1.70; 5 of 20 seeds pass; in-sample false-MUT rate in negatives 7.4 %). **The cause is unresolved.** Two hypotheses stand:
+  - B-cell over-dispersion: B-cell c is 13.5 % against T-cell 3.4 %, but that rests on 5 of 37 UMIs;
+  - a germline or artefact target that the outlier flag did not catch: in the one-UMI test, negatives read MUT more often than other cells (0.080 against 0.049).
+- **T2:** flagged and excluded. v3 passes it anyway (O/E 1.03), so no germline/clonal-haematopoiesis check is needed for this verdict.
+
+**Follow-up, as one separate effort with a fresh pre-registration and new samples:**
+
+- v3-ub, as a *candidate*: chosen on PALM09E T3 (O/E 1.70 → 1.29 there), it over-corrects elsewhere (O/E 0.27–0.69) and costs ≤ 3.5 % of tumour calls. It cannot be confirmed on the data it was chosen from.
+- a germline/artefact check of PALM09E T3;
+- position-tolerant indel matching, as its own ticket: a code change, measured only at read level, which adds noise at the 1 bp insertion target (PALM09E T2 negatives 27 → 93 cells).
 
 ## Reproduce
 

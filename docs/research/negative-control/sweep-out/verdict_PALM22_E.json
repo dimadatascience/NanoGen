@@ -1,0 +1,38 @@
+{
+ "v2": {
+  "crit1": false,
+  "crit2": true,
+  "crit3a": true,
+  "sample_pass": false
+ },
+ "v2+min2": {
+  "crit1": true,
+  "crit2": true,
+  "crit3a": true,
+  "sample_pass": true
+ },
+ "v3": {
+  "crit1": true,
+  "crit2": true,
+  "crit3a": true,
+  "sample_pass": true
+ },
+ "v3-ub": {
+  "crit1": true,
+  "crit2": true,
+  "crit3a": true,
+  "sample_pass": true
+ },
+ "v3-tb": {
+  "crit1": true,
+  "crit2": true,
+  "crit3a": true,
+  "sample_pass": true
+ },
+ "v3-min2": {
+  "crit1": true,
+  "crit2": true,
+  "crit3a": false,
+  "sample_pass": false
+ }
+}

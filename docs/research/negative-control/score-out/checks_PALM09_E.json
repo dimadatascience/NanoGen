@@ -1,0 +1,13 @@
+{
+ "v3_recall_run_P_null_identical": true,
+ "main_p_nan_pattern_identical": true,
+ "main_p_max_abs_diff": 9.8879238130678e-17,
+ "main_recall_genotype_identical": true,
+ "main_rows_unique_cell_gene": true,
+ "neg_not_in_qc": 0,
+ "v3_max_abs_c_s_diff_qc_vs_run": 7.892991815694472e-17,
+ "v3_recall_qc_recomputed_c_s_identical": true,
+ "qc_cells_in_v3": 3159,
+ "qc_cells_in_main": 3159,
+ "numpy": "2.0.1"
+}

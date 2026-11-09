@@ -101,10 +101,14 @@ def ratio(o, e):
 
 
 def em_mixture(m, n, rho0, tol=1e-8, max_iter=10_000):
-    """ML fit of m_i ~ (1-π) Bin(n_i, ρ0) + π Bin(n_i, f), ρ0 fixed, f ∈ (ρ0, 1], by EM from π = f = 0.5."""
+    """ML fit of m_i ~ (1-π) Bin(n_i, ρ0) + π Bin(n_i, f), ρ0 fixed, f ∈ (ρ0, 1], by EM from π = f = 0.5.
+
+    ρ0 may be a per-cell array (`main`'s ρ_i = θ_i + c_s^main); f is then bounded below by its median (#67)."""
     m, n = np.asarray(m, float), np.asarray(n, float)
+    rho_v = np.minimum(np.asarray(rho0, float), 1.0)
+    rho0 = float(np.median(rho_v)) if rho_v.ndim else float(rho_v)
     pi, f = 0.5, max(0.5, rho0 + 1e-6)
-    l0 = binom.logpmf(m, n, min(rho0, 1.0))
+    l0 = binom.logpmf(m, n, rho_v)
     last = -np.inf
     for _ in range(max_iter):
         l1 = binom.logpmf(m, n, f)

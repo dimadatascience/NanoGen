@@ -1,0 +1,34 @@
+{
+ "main": {
+  "crit1_fail": [
+   "T4",
+   "T5"
+  ],
+  "crit2_fail": [
+   "T4"
+  ],
+  "crit3a_not_met": [],
+  "sample_pass": false
+ },
+ "v2": {
+  "crit1_fail": [
+   "T4",
+   "T5"
+  ],
+  "crit2_fail": [],
+  "crit3a_not_met": [],
+  "sample_pass": false
+ },
+ "v2+min2": {
+  "crit1_fail": [],
+  "crit2_fail": [],
+  "crit3a_not_met": [],
+  "sample_pass": true
+ },
+ "v3": {
+  "crit1_fail": [],
+  "crit2_fail": [],
+  "crit3a_not_met": [],
+  "sample_pass": true
+ }
+}

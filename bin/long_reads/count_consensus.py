@@ -56,6 +56,13 @@ def _parse_args():
         required=False,
         help="n_min: the minimum number of usable reads supporting a cluster's label.",
     )
+    parser.add_argument(
+        "--tolerant",
+        type=str,
+        default=None,
+        required=False,
+        help="PROTOTYPE: per-cluster position-tolerant indel counts (umi_grouping.py --tolerant_out).",
+    )
     args = parser.parse_args()
     return args
 
@@ -126,6 +133,14 @@ COUNT_COLUMNS = [
     "WT", "MUT", "OTH", "wt_reads", "wt_altlike_reads", "mixed_discarded",
     "subnmin_umis", "subnmin_reads",
 ]
+# PROTOTYPE (position-tolerant indel matching, never merged), indel targets only:
+# tol_reads, the reads moved to ALT by the tolerant rule; tol_unseen_reads, the
+# tolerant reads of clusters bam-readcount does not list at the anchor (left out);
+# brc_mismatch_umis, the clusters whose per-read v3 classes from pysam differ from
+# bam-readcount's r, a, o (a check of the read classifier).
+TOLERANT_COUNT_COLUMNS = ["tol_reads", "tol_unseen_reads", "brc_mismatch_umis"]
+COUNT_COLUMNS = COUNT_COLUMNS + TOLERANT_COUNT_COLUMNS
+SHIFT_COLUMNS = ("shift_ref", "shift_oth", "shift_none")
 BASES = ("A", "C", "G", "T")
 
 
@@ -268,9 +283,26 @@ def consensus_on_umi(line, ref, alt, min_fraction=0.6, min_reads=3):
     return tally_clusters(parse_clusters(line), ref, alt, min_fraction, min_reads)
 
 
-def tally_clusters(clusters, ref, alt, min_fraction=0.6, min_reads=3):
+def apply_tolerant(r, a, o, t):
+    """
+    PROTOTYPE: move a cluster's tolerant-only reads to ALT. t holds, from
+    umi_grouping.tolerant_counts, those reads by how bam-readcount saw them at
+    the anchor: REF reads leave r, OTH reads leave o, unusable ones are added.
+
+    Returns:
+        Tuple[int, int, int, int, bool]: r, a, o after the move, the reads moved,
+        and whether pysam's per-read v3 classes disagree with r, a, o.
+    """
+    mismatch = (t["v3_ref"], t["v3_alt"], t["v3_oth"]) != (r, a, o)
+    moved = sum(t[c] for c in SHIFT_COLUMNS)
+    return r - min(t["shift_ref"], r), a + moved, o - min(t["shift_oth"], o), moved, mismatch
+
+
+def tally_clusters(clusters, ref, alt, min_fraction=0.6, min_reads=3, names=None, tolerant=None):
     """
     Tally the classes of parsed clusters (see parse_clusters) at one target.
+    PROTOTYPE: at an indel target with tolerant (read group name -> counts) and
+    names (the clusters' read group names), tolerant-only reads count as ALT.
 
     Returns:
         Dict: Number of clusters labelled 'WT', 'MUT' and 'OTH' and 'discarded';
@@ -280,8 +312,14 @@ def tally_clusters(clusters, ref, alt, min_fraction=0.6, min_reads=3):
               and 'subnmin_reads', their usable reads.
     """
     counts = dict.fromkeys(COUNT_COLUMNS + [DISCARDED], 0)
-    for entries in clusters:
+    indel = alt.startswith(("+", "-"))
+    for i, entries in enumerate(clusters):
         r, a, o = allele_counts(entries, ref, alt)
+        t = tolerant.get(names[i]) if indel and tolerant is not None else None
+        if t is not None:
+            r, a, o, moved, mismatch = apply_tolerant(r, a, o, t)
+            counts["tol_reads"] += moved
+            counts["brc_mismatch_umis"] += mismatch
         usable = r + a + o
         cls = classify_counts(r, a, o, min_fraction, min_reads)
         if cls == SUBNMIN:
@@ -297,7 +335,14 @@ def tally_clusters(clusters, ref, alt, min_fraction=0.6, min_reads=3):
     return counts
 
 
-def count_targets(target, lines, min_fraction=0.6, min_reads=3):
+def read_tolerant(path):
+    """PROTOTYPE: read umi_grouping.py's tolerant counts TSV into a dict."""
+    table = pd.read_csv(path, sep="\t", dtype={"read_group": str})
+    return {row["read_group"]: {c: int(row[c]) for c in table.columns if c != "read_group"}
+            for _, row in table.iterrows()}
+
+
+def count_targets(target, lines, min_fraction=0.6, min_reads=3, tolerant=None):
     """
     Count consensus labels and sub-n_min clusters per target for one cell.
 
@@ -332,9 +377,16 @@ def count_targets(target, lines, min_fraction=0.6, min_reads=3):
             # Reads in several bundles have a record per bundle: score only the
             # clusters of this target's bundle
             tid = target_id(chrom, start_pos, ref, alt)
-            bundle_clusters = [entries for library, entries in clusters
-                               if read_group_target(library) == tid]
-            counts = tally_clusters(bundle_clusters, ref, alt, min_fraction, min_reads)
+            bundle = [(library, entries) for library, entries in clusters
+                      if read_group_target(library) == tid]
+            names = [library for library, _ in bundle]
+            counts = tally_clusters([entries for _, entries in bundle], ref, alt,
+                                    min_fraction, min_reads, names, tolerant)
+            if tolerant is not None and alt.startswith(("+", "-")):
+                seen = set(names)
+                counts["tol_unseen_reads"] = sum(
+                    sum(t[c] for c in SHIFT_COLUMNS) for name, t in tolerant.items()
+                    if read_group_target(name) == tid and name not in seen)
             # Rows are matched on chr, start and alt only, as on main
             for val in COUNT_COLUMNS:
                 target.loc[
@@ -365,8 +417,9 @@ def main():
     target = pd.read_csv(args.target, sep="\t", header=None)
     target.columns = ["chr", "start", "end", "ref", "alt", "gene"]
 
+    tolerant = read_tolerant(args.tolerant) if args.tolerant else None
     with open(args.input, "r") as file:
-        target = count_targets(target, file, args.min_fraction, args.min_read)
+        target = count_targets(target, file, args.min_fraction, args.min_read, tolerant)
 
     target["barcode"] = args.cell_barcode
     target.to_csv(f"{args.cell_barcode}_table.csv", index=False)

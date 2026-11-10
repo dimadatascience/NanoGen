@@ -16,6 +16,9 @@ process CONSENSUS {
 
     script:
     """
+    # PROTOTYPE (position-tolerant indel matching, never merged): umi_grouping.py
+    # also writes tolerant.tsv, the reads that count as ALT at an indel target
+    # under the tolerant rule and not under v3's (params.indel_window; -1 is v3).
     # Group UMIs per cell x target: primary mapped reads with MAPQ >= min_mapping_quality,
     # one read group per cluster (<target_id>_<cluster ID>, also the MI tag)
     python ${baseDir}/bin/long_reads/umi_grouping.py \
@@ -25,7 +28,9 @@ process CONSENSUS {
     --min_mapq ${params.min_mapping_quality} \
     --max_ld ${params.umi_max_ld} \
     --ratio ${params.umi_ratio} \
-    --small_reads ${params.umi_small_reads}
+    --small_reads ${params.umi_small_reads} \
+    --tolerant_out tolerant.tsv \
+    --indel_window ${params.indel_window}
 
     # One bam-readcount -p pass per target type, concatenated SNV pass first: SNV
     # targets keep the base-quality filter, indel targets have none, as it would
@@ -48,9 +53,10 @@ process CONSENSUS {
     -t ${params.bedfile} \
     --cell_barcode ${cell} \
     --min_read ${params.min_reads} \
-    --min_fraction ${params.min_fraction}
+    --min_fraction ${params.min_fraction} \
+    --tolerant tolerant.tsv
 
-    rm grouped.bam* snv_targets.bed indel_targets.bed allcounts.count
+    rm grouped.bam* snv_targets.bed indel_targets.bed allcounts.count tolerant.tsv
     """
 
     stub:

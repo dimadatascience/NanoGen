@@ -35,6 +35,10 @@ NOT_PRIMARY_MAPPED = 0x904
 # k: indel bundles reach k bp either side of the target, and an indel entry is
 # ALT-like if its length is within k bp of the target's (count_consensus.py)
 INDEL_K = 1
+# PROTOTYPE (position-tolerant indel matching, never merged): W, the bp either
+# side of the anchor where a tolerant indel's left end may sit. -1 switches the
+# rule off and gives the genotype-v3 counts.
+INDEL_WINDOW = 12
 
 
 def levenshtein(a, b, max_d):
@@ -231,16 +235,180 @@ def group_reads(reads, targets, *, min_mapq, max_ld, ratio, small_reads):
             yield tid, clusters[r.get_tag("UB")], r
 
 
-def write_grouped_bam(bam, bed, output, *, min_mapq, max_ld, ratio, small_reads):
+##
+
+
+# PROTOTYPE: position-tolerant indel matching (never merged)
+#
+# Rule: at an indel target, a read is ALT if it carries an indel of the target's
+# type ('+' or '-') whose length is within INDEL_K bp of the target's and whose
+# left end lies within `window` bp of the anchor, whatever its sequence. This
+# contains genotype-v3's exact rule (offset 0, length within k, prefix agreeing).
+# The left end is the anchor base of an insertion (the reference base before it)
+# and the first deleted base of a deletion, as bam-readcount places them.
+#
+# bam-readcount still counts every read at the anchor. For each read that the
+# rule makes ALT but v3 does not, tolerant_counts records how bam-readcount saw
+# it at the anchor (REF, OTH or not usable), so that count_consensus.py can move
+# it to ALT. With window = 0 only anchor entries of the right type and length
+# whose sequence disagrees with the alt move (v3: OTH); with window = -1 nothing
+# moves.
+
+ANCHOR_REF, ANCHOR_OTH, ANCHOR_NONE, ANCHOR_ALT = "ref", "oth", "none", "alt"
+TOLERANT_COLUMNS = ["read_group", "shift_ref", "shift_oth", "shift_none",
+                    "v3_ref", "v3_alt", "v3_oth"]
+
+
+class IndelTarget(NamedTuple):
+    """An indel target as the read classifier needs it: p0 is the 0-based
+    bam-readcount position (insertion anchor or first deleted base)."""
+
+    target_id: str
+    chrom: str
+    p0: int
+    ref: str
+    kind: str  # '+' or '-'
+    seq: str   # inserted or deleted bases
+
+
+def read_indel_targets(bed):
+    """Indel targets of a BED, one per target ID, in file order."""
+    targets = {}
+    with open(bed) as f:
+        for line in f:
+            if line.strip():
+                chrom, start, _, ref, alt = line.rstrip("\n").split("\t")[:5]
+                if alt.startswith(("+", "-")):
+                    tid = target_id(chrom, start, ref, alt)
+                    targets.setdefault(tid, IndelTarget(tid, chrom, int(start) - 1, ref.upper(),
+                                                        alt[0], alt[1:].upper()))
+    return list(targets.values())
+
+
+def read_indels(read):
+    """
+    The read's indels and its view of each reference position.
+
+    Returns:
+        Tuple[List[Tuple[str, int, str or None, int]], Dict[int, str]]: indels as
+        (kind, 0-based left end, inserted bases or None for a deletion, length), and the
+        read base aligned on each reference position (M, = or X only).
+    """
+    indels, bases = [], {}
+    seq = read.query_sequence or ""
+    rpos, qpos = read.reference_start, 0
+    for op, length in read.cigartuples:
+        if op in (0, 7, 8):  # M, =, X
+            for i in range(length):
+                bases[rpos + i] = seq[qpos + i] if qpos + i < len(seq) else "N"
+            rpos += length
+            qpos += length
+        elif op == 1:  # I: anchored on the reference base before it
+            indels.append(("+", rpos - 1, seq[qpos:qpos + length].upper(), length))
+            qpos += length
+        elif op == 2:  # D: placed on its first deleted base
+            indels.append(("-", rpos, None, length))
+            rpos += length
+        elif op == 3:  # N
+            rpos += length
+        elif op == 4:  # S
+            qpos += length
+    return indels, bases
+
+
+def v3_anchor_class(t, indels, bases, k=INDEL_K):
+    """
+    How bam-readcount and genotype-v3's _indel_allele_counts see one read at the
+    target's anchor: ALT, REF, OTH or not usable (NONE).
+
+    An insertion or deletion entry at the anchor decides the class (ALT if it
+    matches the alt as in count_consensus.indel_matches, else OTH); an insertion
+    entry takes the read off its anchor base. Without one, the anchor base is REF
+    if it is the reference base, OTH if another of A, C, G, T, else NONE. A
+    deletion at the anchor deletes reference bases, so its sequence is the
+    reference and agrees with the alt over their shared part: only its length
+    is tested.
+    """
+    for kind, left, ins_seq, length in indels:
+        if left != t.p0:
+            continue
+        if kind != t.kind or abs(length - len(t.seq)) > k:
+            return ANCHOR_OTH
+        if kind == "+":
+            shared = min(length, len(t.seq))
+            return ANCHOR_ALT if ins_seq[:shared] == t.seq[:shared] else ANCHOR_OTH
+        return ANCHOR_ALT
+    base = bases.get(t.p0, "").upper()
+    if base == t.ref:
+        return ANCHOR_REF
+    if base in ("A", "C", "G", "T"):
+        return ANCHOR_OTH
+    return ANCHOR_NONE
+
+
+def is_tolerant(t, indels, window=INDEL_WINDOW, k=INDEL_K):
+    """Whether the read carries an indel of the target's type, length within k
+    of the target's and left end within window bp of the anchor."""
+    return any(kind == t.kind and abs(length - len(t.seq)) <= k and abs(left - t.p0) <= window
+               for kind, left, _, length in indels)
+
+
+def tolerant_counts(grouped, indel_targets, window=INDEL_WINDOW, k=INDEL_K):
+    """
+    Per indel-target cluster: the reads the tolerant rule makes ALT and v3 does
+    not, by their anchor class (shift_ref, shift_oth, shift_none), and v3's own
+    per-read classes (v3_ref, v3_alt, v3_oth), which should equal bam-readcount's
+    r, a and o (a check, not used in the counts).
+
+    Parameters:
+        grouped (Iterable[Tuple[str, int, pysam.AlignedSegment]]): group_reads output.
+        indel_targets (List[IndelTarget]): see read_indel_targets.
+
+    Returns:
+        Dict[str, Dict[str, int]]: read group name -> counts (TOLERANT_COLUMNS[1:]).
+    """
+    by_id = {t.target_id: t for t in indel_targets}
+    out = {}
+    for tid, c, read in grouped:
+        t = by_id.get(tid)
+        if t is None:
+            continue
+        counts = out.setdefault(read_group(tid, c), dict.fromkeys(TOLERANT_COLUMNS[1:], 0))
+        indels, bases = read_indels(read)
+        cls = v3_anchor_class(t, indels, bases, k)
+        if cls != ANCHOR_NONE:
+            counts[f"v3_{cls}"] += 1
+        if cls != ANCHOR_ALT and is_tolerant(t, indels, window, k):
+            counts[f"shift_{cls}"] += 1
+    return out
+
+
+def write_tolerant_counts(counts, path):
+    """Write tolerant_counts as a TSV with TOLERANT_COLUMNS."""
+    with open(path, "w") as f:
+        f.write("\t".join(TOLERANT_COLUMNS) + "\n")
+        for name, c in counts.items():
+            f.write("\t".join([name] + [str(c[col]) for col in TOLERANT_COLUMNS[1:]]) + "\n")
+
+
+##
+
+
+def write_grouped_bam(bam, bed, output, *, min_mapq, max_ld, ratio, small_reads,
+                      tolerant_out=None, indel_window=INDEL_WINDOW):
     """
     Write a cell's grouped reads for bam-readcount -p: one record per read and
     bundle, in a read group per cluster (ID and LB; see read_group), also set
-    as the MI tag. The output is coordinate-sorted and indexed.
+    as the MI tag. The output is coordinate-sorted and indexed. PROTOTYPE: with
+    tolerant_out, also write the per-cluster tolerant indel counts there.
     """
     with pysam.AlignmentFile(str(bam), "rb", check_sq=False) as f:
         header = f.header.to_dict()
         grouped = list(group_reads(f, read_targets(bed), min_mapq=min_mapq, max_ld=max_ld,
                                    ratio=ratio, small_reads=small_reads))
+    if tolerant_out is not None:
+        write_tolerant_counts(tolerant_counts(grouped, read_indel_targets(bed), indel_window),
+                              tolerant_out)
 
     # Read groups by target, then cluster ID
     order = {tid: i for i, tid in enumerate(dict.fromkeys(tid for tid, _, _ in grouped))}
@@ -279,13 +447,18 @@ def _parse_args():
                         help="Directional ratio: a absorbs b if n_a >= ratio * n_b - 1.")
     parser.add_argument("--small_reads", type=int, default=3,
                         help="Small clause: a absorbs b if n_b <= small_reads and n_a >= n_b.")
+    parser.add_argument("--tolerant_out", default=None,
+                        help="PROTOTYPE: write per-cluster position-tolerant indel counts here.")
+    parser.add_argument("--indel_window", type=int, default=INDEL_WINDOW,
+                        help="PROTOTYPE: bp either side of the anchor for a tolerant indel's left end.")
     return parser.parse_args()
 
 
 def main():
     args = _parse_args()
     write_grouped_bam(args.input, args.bed, args.output, min_mapq=args.min_mapq,
-                      max_ld=args.max_ld, ratio=args.ratio, small_reads=args.small_reads)
+                      max_ld=args.max_ld, ratio=args.ratio, small_reads=args.small_reads,
+                      tolerant_out=args.tolerant_out, indel_window=args.indel_window)
 
 
 if __name__ == "__main__":

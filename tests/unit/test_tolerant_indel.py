@@ -40,8 +40,8 @@ def deletion_read(offset, length=3):
 
 
 def classes(t, r, window=ug.INDEL_WINDOW):
-    indels, bases = ug.read_indels(r)
-    return ug.v3_anchor_class(t, indels, bases), ug.is_tolerant(t, indels, window)
+    indels, base = ug.read_indels(r, t.p0)
+    return ug.v3_anchor_class(t, indels, base), ug.is_tolerant(t, indels, window)
 
 
 # Read classifier
@@ -114,7 +114,7 @@ def test_shifted_deletion_after_the_anchor_is_ref_there_and_tolerant():
 
 def test_non_reference_anchor_base_is_oth():
     r = read(1000, "100M", "A" + "C" * 99)  # A on the anchor, whose reference base is C
-    assert ug.v3_anchor_class(INS, *ug.read_indels(r)) == ug.ANCHOR_OTH
+    assert ug.v3_anchor_class(INS, *ug.read_indels(r, INS.p0)) == ug.ANCHOR_OTH
 
 
 def test_insertion_at_the_anchor_after_an_n_base_is_still_classed_by_the_entry():

@@ -170,8 +170,9 @@
                     "type": "integer",
                     "default": 12,
                     "minimum": -1,
+                    "hidden": true,
                     "description": "PROTOTYPE: bp either side of an indel target's anchor where a position-tolerant ALT indel may start.",
-                    "help_text": "Prototype branch only, never merged. At an indel target a read is ALT if it carries an indel of the target's type, length within 1 bp of the target's, whose left end (insertion anchor or first deleted base) lies within this many bp of the target's, whatever its sequence. -1 switches the rule off and gives the genotype-v3 counts; 0 accepts any sequence at the anchor only. Units: bp.",
+                    "help_text": "Spec: none (prototype branch only, never merged). At an indel target a read is ALT if it carries an indel of the target's type, length within 1 bp of the target's, whose left end (insertion anchor or first deleted base) lies within this many bp of the target's, whatever its sequence. -1 switches the rule off and gives the genotype-v3 counts; 0 accepts any sequence at the anchor only. Units: bp.",
                     "fa_icon": "fas fa-arrows-alt-h"
                 }
             }

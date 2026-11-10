@@ -285,22 +285,22 @@ def read_indel_targets(bed):
     return list(targets.values())
 
 
-def read_indels(read):
+def read_indels(read, p0):
     """
-    The read's indels and its view of each reference position.
+    The read's indels and its base on the 0-based reference position p0.
 
     Returns:
-        Tuple[List[Tuple[str, int, str or None, int]], Dict[int, str]]: indels as
-        (kind, 0-based left end, inserted bases or None for a deletion, length), and the
-        read base aligned on each reference position (M, = or X only).
+        Tuple[List[Tuple[str, int, str or None, int]], str]: indels as (kind,
+        0-based left end, inserted bases or None for a deletion, length), and
+        the read base aligned on p0 (M, = or X), or '' if none is.
     """
-    indels, bases = [], {}
+    indels, base = [], ""
     seq = read.query_sequence or ""
     rpos, qpos = read.reference_start, 0
     for op, length in read.cigartuples:
         if op in (0, 7, 8):  # M, =, X
-            for i in range(length):
-                bases[rpos + i] = seq[qpos + i] if qpos + i < len(seq) else "N"
+            if rpos <= p0 < rpos + length and qpos + p0 - rpos < len(seq):
+                base = seq[qpos + p0 - rpos]
             rpos += length
             qpos += length
         elif op == 1:  # I: anchored on the reference base before it
@@ -313,10 +313,10 @@ def read_indels(read):
             rpos += length
         elif op == 4:  # S
             qpos += length
-    return indels, bases
+    return indels, base
 
 
-def v3_anchor_class(t, indels, bases, k=INDEL_K):
+def v3_anchor_class(t, indels, base, k=INDEL_K):
     """
     How bam-readcount and genotype-v3's _indel_allele_counts see one read at the
     target's anchor: ALT, REF, OTH or not usable (NONE).
@@ -338,7 +338,7 @@ def v3_anchor_class(t, indels, bases, k=INDEL_K):
             shared = min(length, len(t.seq))
             return ANCHOR_ALT if ins_seq[:shared] == t.seq[:shared] else ANCHOR_OTH
         return ANCHOR_ALT
-    base = bases.get(t.p0, "").upper()
+    base = base.upper()
     if base == t.ref:
         return ANCHOR_REF
     if base in ("A", "C", "G", "T"):
@@ -374,8 +374,8 @@ def tolerant_counts(grouped, indel_targets, window=INDEL_WINDOW, k=INDEL_K):
         if t is None:
             continue
         counts = out.setdefault(read_group(tid, c), dict.fromkeys(TOLERANT_COLUMNS[1:], 0))
-        indels, bases = read_indels(read)
-        cls = v3_anchor_class(t, indels, bases, k)
+        indels, base = read_indels(read, t.p0)
+        cls = v3_anchor_class(t, indels, base, k)
         if cls != ANCHOR_NONE:
             counts[f"v3_{cls}"] += 1
         if cls != ANCHOR_ALT and is_tolerant(t, indels, window, k):

@@ -281,6 +281,7 @@ def test_tally_puts_every_covering_cluster_in_exactly_one_class():
         "WT": 1, "MUT": 1, "OTH": 1, "discarded": 1,
         "wt_reads": 5, "wt_altlike_reads": 0, "mixed_discarded": 1,
         "subnmin_umis": 2, "subnmin_reads": 2,
+        "tol_reads": 0, "tol_unseen_reads": 0, "brc_mismatch_umis": 0,  # PROTOTYPE
     }
 
 
@@ -299,6 +300,7 @@ def test_tally_reports_alt_like_reads_in_wt_clusters_and_mixed_discarded_cluster
         "WT": 2, "MUT": 1, "OTH": 0, "discarded": 2,
         "wt_reads": 10, "wt_altlike_reads": 2, "mixed_discarded": 1,
         "subnmin_umis": 0, "subnmin_reads": 0,
+        "tol_reads": 0, "tol_unseen_reads": 0, "brc_mismatch_umis": 0,  # PROTOTYPE
     }
 
 
@@ -315,6 +317,7 @@ def test_consensus_on_umi_tallies_a_bam_readcount_line():
         "WT": 1, "MUT": 2, "OTH": 0, "discarded": 0,
         "wt_reads": 5, "wt_altlike_reads": 0, "mixed_discarded": 0,
         "subnmin_umis": 1, "subnmin_reads": 1,
+        "tol_reads": 0, "tol_unseen_reads": 0, "brc_mismatch_umis": 0,  # PROTOTYPE
     }
 
 
@@ -347,14 +350,15 @@ def test_count_targets_scores_every_alt_at_a_covered_site():
         "chr", "start", "end", "ref", "alt", "gene",
         "WT", "MUT", "OTH", "wt_reads", "wt_altlike_reads", "mixed_discarded",
         "subnmin_umis", "subnmin_reads",
+        "tol_reads", "tol_unseen_reads", "brc_mismatch_umis",  # PROTOTYPE
     ]
     assert table[cc.COUNT_COLUMNS].values.tolist() == [
         # alt C: the T cluster is OTH; alt T: the C cluster is OTH
-        [1, 1, 1, 5, 0, 0, 1, 1],
-        [1, 1, 1, 5, 0, 0, 1, 1],
+        [1, 1, 1, 5, 0, 0, 1, 1, 0, 0, 0],
+        [1, 1, 1, 5, 0, 0, 1, 1, 0, 0, 0],
         # 8 REF : 3 ALT is WT by rule A
-        [1, 0, 0, 11, 3, 0, 0, 0],
-        [0, 0, 0, 0, 0, 0, 0, 0],
+        [1, 0, 0, 11, 3, 0, 0, 0, 0, 0, 0],
+        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
     ]
 
 

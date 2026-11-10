@@ -4,6 +4,8 @@ Wayfinder ticket: *PALM09E T3 cause: germline, artefact or B-cell over-dispersio
 
 This file is committed **before any new look at the data**. It fixes the measurements, the thresholds, the decision rule and what each outcome means for the confirmation. The report cites this file's commit SHA and lists any deviation with its reason.
 
+**Amendment before any data look** (second commit): A4's threshold was "≤ 3 × the 95th percentile", which would read a real few-percent signal over a Nanopore error background as an artefact. It is now "≤ the 95th percentile", which matches the intent: T3 indistinguishable from same-substitution error.
+
 **Already known when this was written** (published aggregates from the scoring and sweep reports, #67 and #68): at T3, c_s = 4.0 % (32 MUT of 808 negative UMIs), and the MUT rate by negative group is T 3.4 % (24/698), NK 4.1 % (3/73) and B 13.5 % (5/37, 20 cells). q_T = 13 %, and the tumour mixture fit puts π̂ ≈ 2.9 % of covered tumour cells at f̂ ≈ 0.98. In-sample, 23 negatives are called MUT against 13.9 expected; held out, the median O/E is 1.70 and the median p is 0.048. The one-UMI test reads MUT in 8.0 % of negatives and 4.9 % of other cells. T3 is a genomic G>A SNV. Nothing else about T3 has been looked at.
 
 **Patient data.** Aggregate numbers only: targets as T1…Tn, no barcodes, gene names, coordinates or patient-data paths.
@@ -41,7 +43,7 @@ This file is committed **before any new look at the data**. It fixes the measure
 | signal | holds when |
 |---|---|
 | **G** (germline) | for each of T, B and Leuk (and NK if it has ≥ 20 covered cells), the Wilson CI of r overlaps [0.3, 0.7] (heterozygous); or every lower bound is ≥ 0.9 (homozygous) |
-| **A** (artefact) | any of: **A1** p < 0.01 and \|Δ\| ≥ 0.25; **A2** p < 0.01 and ALT/REF median ≤ 0.5; **A3** p < 0.01 and difference ≥ 0.15; **A4** T3's rate ≤ 3 × the 95th percentile of the all-G background |
+| **A** (artefact) | any of: **A1** p < 0.01 and \|Δ\| ≥ 0.25; **A2** p < 0.01 and ALT/REF median ≤ 0.5; **A3** p < 0.01 and difference ≥ 0.15; **A4** T3's rate ≤ the 95th percentile of the all-G background (T3 is not an outlier among same-substitution positions) |
 | **D** (over-dispersion) | **D1** p < 0.05, or **D2** p < 0.05 |
 | **U** (uniform) | U's p ≥ 0.05 |
 

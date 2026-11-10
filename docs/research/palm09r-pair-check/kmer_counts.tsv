@@ -1,0 +1,5 @@
+target	panel_E	panel_R	E_flank_kmer_hits	R_flank_kmer_hits
+T1	yes	yes	5698193	4283979
+T2	yes	yes	18786626	8291416
+T3	yes	no	20602048	19
+T4	yes	no	2995039	230

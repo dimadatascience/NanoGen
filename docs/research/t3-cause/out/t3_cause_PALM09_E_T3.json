@@ -1,0 +1,322 @@
+{
+ "sample": "PALM09_E",
+ "target": "T3",
+ "substitution": "G>A",
+ "checks": {
+  "neg_not_T_NK_B": 0,
+  "overlap_T_B": 0,
+  "overlap_NK_B": 0,
+  "c_s_recomputed": 0.039603960396039604,
+  "c_s_run": 0.0396039603960396,
+  "c_s_match": true
+ },
+ "rates": {
+  "T": {
+   "group": "T",
+   "cells": 280,
+   "umis": 698,
+   "mut_umis": 24,
+   "r": 0.034383954154727794,
+   "r_lo": 0.02321292372823847,
+   "r_hi": 0.0506521763171279,
+   "cells_with_mut": 23,
+   "frac_cells_with_mut": 0.08214285714285714,
+   "cells_mut_ge2": 1
+  },
+  "NK": {
+   "group": "NK",
+   "cells": 12,
+   "umis": 73,
+   "mut_umis": 3,
+   "r": 0.0410958904109589,
+   "r_lo": 0.01407368523428873,
+   "r_hi": 0.1140027733506444,
+   "cells_with_mut": 3,
+   "frac_cells_with_mut": 0.25,
+   "cells_mut_ge2": 0
+  },
+  "B": {
+   "group": "B",
+   "cells": 20,
+   "umis": 37,
+   "mut_umis": 5,
+   "r": 0.13513513513513514,
+   "r_lo": 0.059132072625076235,
+   "r_hi": 0.2797772747070557,
+   "cells_with_mut": 5,
+   "frac_cells_with_mut": 0.25,
+   "cells_mut_ge2": 0
+  },
+  "T/NK": {
+   "group": "T/NK",
+   "cells": 292,
+   "umis": 771,
+   "mut_umis": 27,
+   "r": 0.03501945525291829,
+   "r_lo": 0.024177246358000403,
+   "r_hi": 0.050472333633574645,
+   "cells_with_mut": 26,
+   "frac_cells_with_mut": 0.08904109589041095,
+   "cells_mut_ge2": 1
+  },
+  "Neg": {
+   "group": "Neg",
+   "cells": 312,
+   "umis": 808,
+   "mut_umis": 32,
+   "r": 0.039603960396039604,
+   "r_lo": 0.028191048758622987,
+   "r_hi": 0.05537402107766034,
+   "cells_with_mut": 31,
+   "frac_cells_with_mut": 0.09935897435897435,
+   "cells_mut_ge2": 1
+  },
+  "Leuk": {
+   "group": "Leuk",
+   "cells": 220,
+   "umis": 460,
+   "mut_umis": 60,
+   "r": 0.13043478260869565,
+   "r_lo": 0.10269392768621682,
+   "r_hi": 0.16429721756681787,
+   "cells_with_mut": 13,
+   "frac_cells_with_mut": 0.05909090909090909,
+   "cells_mut_ge2": 2
+  },
+  "Amb": {
+   "group": "Amb",
+   "cells": 58,
+   "umis": 96,
+   "mut_umis": 4,
+   "r": 0.041666666666666664,
+   "r_lo": 0.0163204434524125,
+   "r_hi": 0.10228342507533544,
+   "cells_with_mut": 4,
+   "frac_cells_with_mut": 0.06896551724137931,
+   "cells_mut_ge2": 0
+  },
+  "Other": {
+   "group": "Other",
+   "cells": 0,
+   "umis": 0,
+   "mut_umis": 0,
+   "r": NaN,
+   "r_lo": NaN,
+   "r_hi": NaN,
+   "cells_with_mut": 0,
+   "frac_cells_with_mut": NaN,
+   "cells_mut_ge2": 0
+  }
+ },
+ "G_groups": [
+  "T",
+  "B",
+  "Leuk"
+ ],
+ "D1": {
+  "r": 0.060441368065676696,
+  "rho": 0.2162481735205584,
+  "LR": 12.879985915263546,
+  "p": 0.0001660573694256664
+ },
+ "D1_T": {
+  "r": 0.05067794063678874,
+  "rho": 0.21307332483904404,
+  "LR": 10.595961879123763,
+  "p": 0.0005666746051537663
+ },
+ "D1_Leuk": {
+  "r": 0.05641433934782311,
+  "rho": 0.7792456934065386,
+  "LR": 240.06652927429604,
+  "p": 1.9018190200143818e-54
+ },
+ "D2": {
+  "table_B_TNK_mut_nomut": [
+   [
+    5,
+    15
+   ],
+   [
+    26,
+    266
+   ]
+  ],
+  "p": 0.03673339892267451
+ },
+ "U": {
+  "chi2": 41.197355249551855,
+  "p": 1.999980000199998e-05,
+  "method": "monte_carlo"
+ },
+ "read_level": {
+  "context_trinucleotide_match_count": 0,
+  "neg": {
+   "reads": 2822628,
+   "alt_reads": 169988,
+   "ref_reads": 2652640,
+   "raw_alt_rate": 0.060223309624931096,
+   "strand_table_altplus_altminus_refplus_refminus": [
+    [
+     92584,
+     77404
+    ],
+    [
+     950955,
+     1701685
+    ]
+   ],
+   "fplus_alt": 0.5446502106031014,
+   "fplus_ref": 0.3584938024006273,
+   "A1_delta": 0.1861564082024741,
+   "A1_p": 0.0,
+   "dist_median_alt": 188.0,
+   "dist_median_ref": 94.0,
+   "A2_ratio": 2.0,
+   "A2_p": 0.0,
+   "bq_median_alt": 31.0,
+   "bq_median_ref": 27.0,
+   "other_alleles": {
+    "del_or_skip": 38488,
+    "T": 5108,
+    "C": 3127
+   },
+   "molecules": 11184,
+   "molecules_alt_majority": 290,
+   "molecules_altfrac_hist_0_lt02_lt05_lt08_le1": [
+    6605,
+    2573,
+    1716,
+    262,
+    28
+   ],
+   "alt_majority_purity_median": 0.6666666666666666
+  },
+  "leuk": {
+   "reads": 2196202,
+   "alt_reads": 541591,
+   "ref_reads": 1654611,
+   "raw_alt_rate": 0.2466034545091936,
+   "strand_table_altplus_altminus_refplus_refminus": [
+    [
+     216408,
+     325183
+    ],
+    [
+     617282,
+     1037329
+    ]
+   ],
+   "fplus_alt": 0.3995782795504357,
+   "fplus_ref": 0.37306774825019295,
+   "A1_delta": 0.026510531300242723,
+   "A1_p": 1.2159035593114167e-265,
+   "dist_median_alt": 52.0,
+   "dist_median_ref": 53.0,
+   "A2_ratio": 0.9811320754716981,
+   "A2_p": 0.0,
+   "bq_median_alt": 33.0,
+   "bq_median_ref": 28.0,
+   "other_alleles": {
+    "del_or_skip": 30088,
+    "T": 3372,
+    "C": 2684
+   },
+   "molecules": 6845,
+   "molecules_alt_majority": 2153,
+   "molecules_altfrac_hist_0_lt02_lt05_lt08_le1": [
+    2868,
+    1091,
+    733,
+    355,
+    1798
+   ],
+   "alt_majority_purity_median": 1.0
+  },
+  "A3_diff": 0.33333333333333337,
+  "A3_p": 2.4131630786433415e-113,
+  "A4_bg_positions": 33,
+  "A4_bg_median": 0.002559590866012195,
+  "A4_bg_p95": 0.007554480715290598,
+  "A4_ratio": 7.971866220140915,
+  "A4_ctx_positions": 0,
+  "A4_ctx_p95": NaN,
+  "A4_ctx_ratio": NaN,
+  "A4_bg_max": 0.013422018917195373
+ },
+ "signals": {
+  "G": false,
+  "A1": false,
+  "A2": false,
+  "A3": true,
+  "A4": false,
+  "A": true,
+  "D1": true,
+  "D2": true,
+  "D": true,
+  "U": false
+ },
+ "decision": "inconclusive",
+ "cross_target": [
+  {
+   "target": "T1",
+   "B_cells": 36,
+   "B_umis": 83,
+   "B_mut": 0,
+   "r_B": 0.0,
+   "TNK_cells": 920,
+   "TNK_umis": 3221,
+   "TNK_mut": 3,
+   "r_TNK": 0.0009313877677739833,
+   "ratio": 0.0
+  },
+  {
+   "target": "T2",
+   "B_cells": 33,
+   "B_umis": 140,
+   "B_mut": 0,
+   "r_B": 0.0,
+   "TNK_cells": 645,
+   "TNK_umis": 2223,
+   "TNK_mut": 8,
+   "r_TNK": 0.003598740440845704,
+   "ratio": 0.0
+  },
+  {
+   "target": "T3",
+   "B_cells": 20,
+   "B_umis": 37,
+   "B_mut": 5,
+   "r_B": 0.13513513513513514,
+   "TNK_cells": 292,
+   "TNK_umis": 771,
+   "TNK_mut": 27,
+   "r_TNK": 0.03501945525291829,
+   "ratio": 3.858858858858859
+  },
+  {
+   "target": "T4",
+   "B_cells": 8,
+   "note": "< 20 covered B cells"
+  }
+ ],
+ "carriers": {
+  "carriers": 31,
+  "others": 281,
+  "carriers_total_umis_median": 6.0,
+  "others_total_umis_median": 7.0,
+  "carriers_doublet_frac": 0.0,
+  "others_doublet_frac": 0.0,
+  "carriers_by_lineage": {
+   "T": 23,
+   "NK": 3,
+   "B": 5
+  },
+  "carriers_mut_umis_hist": {
+   "1": 30,
+   "2": 1
+  },
+  "depth_mw_p": 0.788399325084962
+ },
+ "numpy": "2.0.1"
+}

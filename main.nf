@@ -31,14 +31,26 @@ workflow LONG_READS {
 }
 
 
-// extract channels from input annotation sample sheet
+// extract [sample, lane, fastq, known_bc] from a fastq sample sheet, one row per lane.
+// The optional known_bc column gives the sample's short-read cell barcodes: BLAZE
+// then assigns reads to that list instead of building its own whitelist. Empty or
+// absent, known_bc is [] and BLAZE runs as before.
 def extract_csv(csv_file) {
     check_samplesheet(csv_file, ["sample", 'lane', 'fastq'])
 
-    Channel.from(csv_file)
-        .splitCsv(header: true)
-        .map { row -> [row.sample, row.lane, row.fastq]
+    def rows = csv_file.splitCsv(header: true)
+    rows.groupBy { it.sample }.each { sample, sample_rows ->
+        def lists = sample_rows.collect { it.known_bc ?: '' }.toSet()
+        if (lists.size() > 1) {
+            log.error "Sample ${sample} gives different known_bc files on its lanes in ${csv_file}. Give one known_bc per sample, on every lane or none."
+            System.exit(1)
         }
+    }
+
+    Channel.fromList(rows.collect { row ->
+        def known_bc = row.known_bc ? file(row.known_bc, checkIfExists: true) : []
+        [row.sample, row.lane, row.fastq, known_bc]
+    })
 }
 
 

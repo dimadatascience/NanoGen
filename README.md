@@ -51,6 +51,8 @@ The pipeline expects an input file with header
 | sample1        | l1                | path2/fastq.gz |
 | .....          | .....             | .....          |
 
+An optional `known_bc` column gives the sample's short-read cell barcodes (for example Cell Ranger's filtered `barcodes.tsv.gz`, or a QC-passed list; plain or gzipped, one barcode per line, the `-1` suffix is stripped). With it, BLAZE assigns reads to that list (`--no-whitelisting --known-bc-list`) instead of building its own whitelist from the long-read barcode counts, so cells with few reads at the targets are not dropped by the count cutoff. Give the same file on every lane of a sample, or leave it empty.
+
 ### Starting from a tagged BAM
 
 With `--input_type tagged_bam` the run skips BLAZE, MERGE_READS, MINIMAP2 and FIXTAGS and starts at SPLIT_BAM. The samplesheet has one row per sample:
@@ -153,7 +155,7 @@ params.outdir
 
 | Parameter | Default | Spec symbol | Meaning |
 | --------- | ------- | ----------- | ------- |
-| `--input` | — | — | Samplesheet CSV: sample, lane, fastq; or sample, bam with `--input_type tagged_bam` |
+| `--input` | — | — | Samplesheet CSV: sample, lane, fastq (optional known_bc); or sample, bam with `--input_type tagged_bam` |
 | `--input_type` | `fastq` | — | `fastq`, or `tagged_bam` to start from tagged, aligned BAMs at SPLIT_BAM (see Input) |
 | `--outdir` | `results` | — | Directory where results are saved |
 | `--minimap2_input_genome` | — | — | Reference genome FASTA |

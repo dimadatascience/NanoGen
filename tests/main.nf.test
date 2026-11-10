@@ -36,6 +36,80 @@ nextflow_pipeline {
 
     }
 
+    test("a known_bc column runs BLAZE against the short-read barcodes") {
+
+        when {
+            params {
+                def samplesheet = new File("${outputDir}/samplesheet.csv")
+                samplesheet.parentFile.mkdirs()
+                samplesheet.text = [
+                    "sample,lane,fastq,known_bc",
+                    "S1,L1,${baseDir}/tests/data/S1_L1.fastq,${baseDir}/tests/data/S1_known_bc.tsv",
+                    "S1,L2,${baseDir}/tests/data/S1_L2.fastq,${baseDir}/tests/data/S1_known_bc.tsv",
+                ].join("\n") + "\n"
+
+                input  = samplesheet.toString()
+                outdir = "${outputDir}/results"
+            }
+        }
+
+        then {
+            assert workflow.success
+            assert workflow.trace.succeeded().size() == 11
+            assert path("${outputDir}/results/S1/logs/blaze.log").text.contains("Barcode mode: known-bc-list")
+            assert path("${outputDir}/results/S1/S1.csv").exists()
+        }
+
+    }
+
+    test("without known_bc BLAZE builds its own whitelist") {
+
+        when {
+            params {
+                def samplesheet = new File("${outputDir}/samplesheet.csv")
+                samplesheet.parentFile.mkdirs()
+                samplesheet.text = [
+                    "sample,lane,fastq,known_bc",
+                    "S1,L1,${baseDir}/tests/data/S1_L1.fastq,",
+                ].join("\n") + "\n"
+
+                input  = samplesheet.toString()
+                outdir = "${outputDir}/results"
+            }
+        }
+
+        then {
+            assert workflow.success
+            assert path("${outputDir}/results/S1/logs/blaze.log").text.contains("Barcode mode: whitelisting")
+        }
+
+    }
+
+    test("different known_bc files on the lanes of one sample fail") {
+
+        when {
+            params {
+                def samplesheet = new File("${outputDir}/samplesheet.csv")
+                samplesheet.parentFile.mkdirs()
+                samplesheet.text = [
+                    "sample,lane,fastq,known_bc",
+                    "S1,L1,${baseDir}/tests/data/S1_L1.fastq,${baseDir}/tests/data/S1_known_bc.tsv",
+                    "S1,L2,${baseDir}/tests/data/S1_L2.fastq,${baseDir}/tests/data/S1_known_bc_other.txt",
+                ].join("\n") + "\n"
+
+                input  = samplesheet.toString()
+                outdir = "${outputDir}/results"
+            }
+        }
+
+        then {
+            assert workflow.failed
+            assert workflow.trace.tasks().size() == 0
+            assert (workflow.stdout + workflow.stderr).any { it.contains("Sample S1 gives different known_bc files") }
+        }
+
+    }
+
     test("tagged BAM samplesheet starts at SPLIT_BAM") {
 
         when {

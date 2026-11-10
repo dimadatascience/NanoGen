@@ -166,3 +166,6 @@ cython_debug/
 ./scratch/
 ./.nextflow/
 
+
+# Local sample-paths sheet: patient-data paths, never commit
+docs/genotyping_paths.xlsx

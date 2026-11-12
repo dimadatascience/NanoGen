@@ -31,3 +31,15 @@ _Avoid_: per-target calibration, aggregate evaluability
 **Site exception**:
 A target flagged by the pre-registered per-target outlier screen that runs next to the pooled calibration test. It stays in the pool and doesn't fail the verdict; it is reported alongside it and investigated.
 _Avoid_: outlier exclusion, dropped target
+
+**Tumour-evaluable locus**:
+A clonal locus with enough covered tumour cells, fixed before scoring from coverage alone, for its tumour-side precision to be tested. A phased group of targets counts as one locus.
+_Avoid_: evaluable target (that term is the negative-control evaluability of the earlier pre-registration)
+
+**No-signal target**:
+A tumour-evaluable target whose counts show no detectable mutant component in tumour cells, judged from the shared counts before any contender is scored. It is a counts-level failure, not a caller failure.
+_Avoid_: failed target, dropout target
+
+**Fragile verdict**:
+A verdict whose pass/fail changes when target-seeds with few negative-control UMIs are also left out of the pooled calibration test. The label is reported; it doesn't change the verdict.
+_Avoid_: unstable, borderline

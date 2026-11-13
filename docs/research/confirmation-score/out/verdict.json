@@ -1,0 +1,128 @@
+{
+ "verdict": "neither confirmed; v3 stays provisional",
+ "contenders": {
+  "v3": {
+   "pooled_pass": false,
+   "pooled_pass_fragility": false,
+   "tumour_gate_pass": true,
+   "tumour_side_evaluable": true,
+   "tumour_gate_fail": [],
+   "passes": false
+  },
+  "v3-ub": {
+   "pooled_pass": true,
+   "pooled_pass_fragility": true,
+   "tumour_gate_pass": true,
+   "tumour_side_evaluable": true,
+   "tumour_gate_fail": [],
+   "passes": true
+  }
+ },
+ "loss": 0.1124704025256511,
+ "loss_gate_pass": false,
+ "loss_by_patient": {
+  "PALM08_E": 0.04613095238095233,
+  "PALM11_E": 0.007462686567164201,
+  "PALM14_E": 0.2668393782383419,
+  "AML5": 0.26973684210526316
+ },
+ "O_T_gated_v3": 2534.0,
+ "O_T_gated_ub": 2249.0,
+ "deployment_outside_gated": {
+  "targets": 30,
+  "O_T_v3": 775,
+  "O_T_ub": 601,
+  "silenced_targets": 7
+ },
+ "fragile": false,
+ "site_exceptions": {
+  "v3": [
+   "AML5 T11"
+  ],
+  "v3-ub": []
+ },
+ "weak_null_pass": true,
+ "zero_info_fraction": 0.07432432432432433,
+ "zero_info_over_10pct": false,
+ "loci": 15,
+ "no_signal_loci": 0,
+ "gated_loci": [
+  "PALM08_E T3",
+  "PALM08_E T4",
+  "PALM11_E T1",
+  "PALM14_E T1",
+  "PALM14_E {T3-T5}",
+  "PALM14_E T6",
+  "PALM14_E T7",
+  "AML5 T3"
+ ],
+ "patients_with_gated_locus": 4,
+ "locus_status": {
+  "PALM08_E T3": "gated",
+  "PALM08_E T4": "gated",
+  "PALM11_E T1": "gated",
+  "PALM14_E T1": "gated",
+  "PALM14_E T2": "flagged",
+  "PALM14_E {T3-T5}": "gated",
+  "PALM14_E T6": "gated",
+  "PALM14_E T7": "gated",
+  "AML5 T1": "flagged",
+  "AML5 T3": "gated",
+  "sAML1 T7": "flagged",
+  "sAML1 T9": "flagged",
+  "sAML1 T10": "flagged",
+  "sAML1 T11": "flagged",
+  "sAML1 T12": "flagged"
+ },
+ "no_signal_targets": [],
+ "under_covered": [
+  "AML4 T1",
+  "AML4 T10",
+  "AML4 T2",
+  "AML4 T3",
+  "AML4 T4",
+  "AML4 T6",
+  "AML4 T7",
+  "AML4 T8",
+  "AML4 T9",
+  "AML5 T10",
+  "AML5 T12",
+  "AML5 T2",
+  "AML5 T5",
+  "AML5 T6",
+  "AML5 T7",
+  "AML5 T9",
+  "PALM08_E T1",
+  "PALM08_E T2",
+  "sAML1 T13",
+  "sAML1 T14",
+  "sAML1 T2",
+  "sAML1 T3",
+  "sAML1 T4",
+  "sAML1 T5"
+ ],
+ "flagged_pool_targets": [
+  "AML4 T3",
+  "AML4 T4",
+  "AML4 T9",
+  "AML5 T1",
+  "AML5 T10",
+  "AML5 T16",
+  "AML5 T4",
+  "PALM07_E T2",
+  "PALM07_E T4",
+  "PALM11_E T3",
+  "PALM14_E T2",
+  "PALM21_E T1",
+  "PALM21_E T5",
+  "sAML1 T10",
+  "sAML1 T11",
+  "sAML1 T12",
+  "sAML1 T2",
+  "sAML1 T7",
+  "sAML1 T8",
+  "sAML1 T9"
+ ],
+ "no_negative_data": [],
+ "scope_line": "Per-target precision confirmed on 8 covered, signal-bearing loci in 4 patients. 24 under-covered and 0 no-signal targets are listed. Thin-null loci: PALM14E {T3\u2013T5}. Weak-null pass: PALM14E {T3\u2013T5}."
+}

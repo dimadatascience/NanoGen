@@ -1,0 +1,10 @@
+{
+ "recall_run_P_null_identical": true,
+ "neg_not_in_qc": 0,
+ "nk_in_neg": 366,
+ "nk_not_in_neg": 0,
+ "neg_not_T_B_NK": 0,
+ "max_abs_c_s_diff_qc_vs_run": 3.469446951953614e-17,
+ "recall_qc_recomputed_c_s_identical": true,
+ "numpy": "2.0.1"
+}

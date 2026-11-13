@@ -43,3 +43,17 @@ _Avoid_: failed target, dropout target
 **Fragile verdict**:
 A verdict whose pass/fail changes when target-seeds with few negative-control UMIs are also left out of the pooled calibration test. The label is reported; it doesn't change the verdict.
 _Avoid_: unstable, borderline
+
+### Settings and modes
+
+**Provisional setting**:
+The operating default whose pre-registered confirmation failed or was never attempted. It is used with its measured limits stated, not as a confirmed setting.
+_Avoid_: unvalidated default, temporary setting
+
+**Strict mode**:
+The genotyping mode whose negative-control calls passed a pre-registered pooled calibration test on new patients, at the cost of fewer tumour calls where the null is thinly sampled.
+_Avoid_: conservative mode, calibrated mode
+
+**Relaxed mode**:
+The genotyping mode that keeps more tumour calls and cells, guaranteed only by the per-target precision gate. Its negative-control calls are known to exceed the model's expectation on average.
+_Avoid_: sensitive mode, lenient mode

@@ -1,0 +1,85 @@
+{
+ "PALM07_E": {
+  "recall_identical": true,
+  "max_abs_c_s_diff": 9.020562075079397e-17,
+  "qc": 6637,
+  "neg": 3351,
+  "leuk": 2352,
+  "amb": 934,
+  "neg_leuk_overlap": 0,
+  "cells_in_run": 6637
+ },
+ "PALM08_E": {
+  "recall_identical": true,
+  "max_abs_c_s_diff": 8.673617379884035e-17,
+  "qc": 9208,
+  "neg": 877,
+  "leuk": 6578,
+  "amb": 1753,
+  "neg_leuk_overlap": 0,
+  "cells_in_run": 9208
+ },
+ "PALM11_E": {
+  "recall_identical": true,
+  "max_abs_c_s_diff": 5.551115123125783e-17,
+  "qc": 5343,
+  "neg": 293,
+  "leuk": 4664,
+  "amb": 386,
+  "neg_leuk_overlap": 0,
+  "cells_in_run": 5343
+ },
+ "PALM14_E": {
+  "recall_identical": true,
+  "max_abs_c_s_diff": 1.1102230246251565e-16,
+  "qc": 5945,
+  "neg": 1064,
+  "leuk": 3698,
+  "amb": 1183,
+  "neg_leuk_overlap": 0,
+  "cells_in_run": 5945
+ },
+ "PALM21_E": {
+  "recall_identical": true,
+  "max_abs_c_s_diff": 9.194034422677078e-17,
+  "qc": 9913,
+  "neg": 4431,
+  "leuk": 4285,
+  "amb": 1197,
+  "neg_leuk_overlap": 0,
+  "cells_in_run": 9913
+ },
+ "AML4": {
+  "recall_identical": true,
+  "max_abs_c_s_diff": 5.551115123125783e-17,
+  "qc": 1997,
+  "neg": 767,
+  "leuk": 88,
+  "amb": 1102,
+  "neg_leuk_overlap": 0,
+  "cells_in_run": 1987
+ },
+ "AML5": {
+  "recall_identical": true,
+  "max_abs_c_s_diff": 6.938893903907228e-17,
+  "qc": 2851,
+  "neg": 518,
+  "leuk": 1940,
+  "amb": 326,
+  "neg_leuk_overlap": 0,
+  "cells_in_run": 2780
+ },
+ "sAML1": {
+  "recall_identical": true,
+  "max_abs_c_s_diff": 6.938893903907228e-17,
+  "qc": 4292,
+  "neg": 1073,
+  "leuk": 2438,
+  "amb": 281,
+  "neg_leuk_overlap": 0,
+  "cells_in_run": 3588
+ },
+ "numpy": "2.0.1",
+ "pandas": "2.2.2",
+ "scipy": "1.14.0"
+}

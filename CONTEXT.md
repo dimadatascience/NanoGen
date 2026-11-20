@@ -57,3 +57,25 @@ _Avoid_: conservative mode, calibrated mode
 **Relaxed mode**:
 The genotyping mode that keeps more tumour calls and cells, guaranteed only by the per-target precision gate. Its negative-control calls are known to exceed the model's expectation on average.
 _Avoid_: sensitive mode, lenient mode
+
+### Clonal structure in the reports
+
+**Single-cell CF**:
+The fraction of a patient's Leukemic cells called at a locus that are called MUT. It mixes clonality with allelic expression and per-cell detection, so it describes detection, not prevalence.
+_Avoid_: CCF, clonal fraction, prevalence
+
+**Trunk locus**:
+A locus whose WES copy-aware CCF meets the clonal rule, so the mutation is expected in every tumour cell. Trunk loci have no order among themselves.
+_Avoid_: founder mutation, first locus
+
+**Subclonal locus**:
+A locus with a WES CCF below the clonal rule. It is nested under another locus only when the two loci's CCFs cannot fit in separate cells; otherwise it may sit on a separate branch.
+_Avoid_: later locus, descendant
+
+**Untiered locus**:
+A locus with no usable WES CCF (no WES call, or a non-diploid sample with no copy multiplicity), so clonal structure isn't inferred for it.
+_Avoid_: no-WES patient (patients thought to lack WES turned out to have it)
+
+**Allele-detection contrast**:
+A MUT-vs-WT comparison at a trunk locus. Every tumour cell carries the mutation, so the split separates cells where the mutant allele was detected from cells where it wasn't. It is not a genotype comparison.
+_Avoid_: genotype contrast (reserved for subclonal loci)
